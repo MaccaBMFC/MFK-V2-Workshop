@@ -196,6 +196,44 @@ function formatShoppingQuantity(value){
 
 const COOK_SESSION_KEY="mfk_active_cook_session_v12";
 
+const nextBrowserPaint=()=>new Promise(resolve=>
+  requestAnimationFrame(()=>requestAnimationFrame(resolve))
+);
+
+function closeDialogSafely(dialog){
+  if(!dialog)return;
+  try{
+    if(dialog.open)dialog.close();
+  }catch(error){
+    console.warn("MFK could not close dialog cleanly:",error);
+    dialog.removeAttribute("open");
+  }
+}
+
+async function openDialogSafely(dialog){
+  if(!dialog)return false;
+
+  // Native dialog transitions can fail if the previous modal is still
+  // leaving the browser's top layer. Give it two animation frames.
+  await nextBrowserPaint();
+
+  if(dialog.open)return true;
+
+  try{
+    dialog.showModal();
+    return true;
+  }catch(error){
+    console.warn("MFK modal fallback used:",error);
+    try{
+      dialog.setAttribute("open","");
+      return true;
+    }catch{
+      return false;
+    }
+  }
+}
+
+
 async function loadCookLogs(){
   if(!currentUser){cookLogs=[];return}
   const {data,error}=await db.from("recipe_cook_logs")
@@ -262,7 +300,14 @@ $("resume-cooking-button").onclick=async()=>{
     return;
   }
 
-  await startCookMode(saved.recipeId,saved.servings,true);
+  // Hide the Home card immediately so it cannot appear stuck behind Cook Mode.
+  $("resume-cooking-card").hidden=true;
+
+  closeDialogSafely($("cook-exit-dialog"));
+  closeDialogSafely($("cook-finish-dialog"));
+
+  const opened=await startCookMode(saved.recipeId,saved.servings,true);
+  if(!opened)renderResumeCooking();
 };
 
 function scaledRecipeIngredients(recipeId,servings){
@@ -296,9 +341,16 @@ async function startCookMode(recipeId,servings=null,resume=false){
   renderCookIngredients();
   renderCookStep();
   saveCookSession();
-  $("cook-mode-dialog").showModal();
+
+  closeDialogSafely($("cook-exit-dialog"));
+  closeDialogSafely($("cook-finish-dialog"));
+
+  const opened=await openDialogSafely($("cook-mode-dialog"));
+  if(!opened)return false;
+
   await requestCookWakeLock();
   try{await screen.orientation?.lock?.("portrait")}catch{}
+  return true;
 }
 
 function renderCookIngredients(){
@@ -354,11 +406,11 @@ function detectTimerFromStep(text){
 }
 
 $("cook-prev-step").onclick=()=>{if(cookSession?.stepIndex>0){cookSession.stepIndex--;renderCookStep()}};
-$("cook-next-step").onclick=()=>{
+$("cook-next-step").onclick=async()=>{
   if(!cookSession)return;
   const recipe=recipes.find(r=>r.id===cookSession.recipeId);
   const steps=managerLineArray(recipe?.method);
-  if(cookSession.stepIndex>=steps.length-1){openCookFinish();return}
+  if(cookSession.stepIndex>=steps.length-1){await openCookFinish();return}
   cookSession.stepIndex++;renderCookStep();
 };
 $("toggle-cook-ingredients").onclick=()=>{
@@ -367,41 +419,44 @@ $("toggle-cook-ingredients").onclick=()=>{
 };
 $("cook-mode-exit").onclick=async()=>{
   if(!cookSession){
-    if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+    closeDialogSafely($("cook-mode-dialog"));
     await releaseCookWakeLock();
     return;
   }
 
-  // A browser cannot display two modal dialogs at once.
-  // Close Cook Mode first, then show the intentional exit choice.
-  if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+  closeDialogSafely($("cook-mode-dialog"));
   await releaseCookWakeLock();
-  $("cook-exit-dialog").showModal();
+  await openDialogSafely($("cook-exit-dialog"));
 };
 
 $("cook-exit-cancel").onclick=async()=>{
-  $("cook-exit-dialog").close();
-
+  closeDialogSafely($("cook-exit-dialog"));
   if(!cookSession)return;
 
-  $("cook-mode-dialog").showModal();
   renderCookStep();
+  const opened=await openDialogSafely($("cook-mode-dialog"));
+  if(!opened){
+    setPage("today");
+    renderResumeCooking();
+    return;
+  }
+
   await requestCookWakeLock();
   try{await screen.orientation?.lock?.("portrait")}catch{}
 };
 
 $("cook-resume-later").onclick=async()=>{
   if(cookSession)saveCookSession();
-  $("cook-exit-dialog").close();
+  closeDialogSafely($("cook-exit-dialog"));
   await releaseCookWakeLock();
   setPage("today");
   renderResumeCooking();
   await refreshSmartHome();
 };
 
-$("cook-finish-now").onclick=()=>{
-  $("cook-exit-dialog").close();
-  openCookFinish();
+$("cook-finish-now").onclick=async()=>{
+  closeDialogSafely($("cook-exit-dialog"));
+  await openCookFinish();
 };
 
 $("cook-stop-now").onclick=async()=>{
@@ -411,7 +466,7 @@ $("cook-stop-now").onclick=async()=>{
   $("active-timer-card").hidden=true;
 
   clearCookSession();
-  $("cook-exit-dialog").close();
+  closeDialogSafely($("cook-exit-dialog"));
   await releaseCookWakeLock();
   setPage("today");
   await refreshSmartHome();
@@ -470,26 +525,30 @@ $("cancel-active-timer").onclick=()=>{
   $("active-timer-card").hidden=true;
 };
 
-function openCookFinish(){
-  if(!cookSession)return;
+async function openCookFinish(){
+  if(!cookSession)return false;
 
-  // The cook is no longer resumable as soon as the finish screen opens.
   cookSession.completed=true;
   localStorage.removeItem(COOK_SESSION_KEY);
-  renderResumeCooking();
+  $("resume-cooking-card").hidden=true;
 
-  if($("cook-exit-dialog").open)$("cook-exit-dialog").close();
-  if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+  closeDialogSafely($("cook-exit-dialog"));
+  closeDialogSafely($("cook-mode-dialog"));
 
-  releaseCookWakeLock();
+  await releaseCookWakeLock();
+
   cookSelectedRating=0;
   $("cook-finish-note").value="";
   $("cook-finish-message").textContent="";
   renderRatingPicker();
 
-  if(!$("cook-finish-dialog").open){
-    $("cook-finish-dialog").showModal();
+  const opened=await openDialogSafely($("cook-finish-dialog"));
+  if(!opened){
+    // Never leave a completed cook trapped in limbo.
+    finishCookReturnHome();
+    return false;
   }
+  return true;
 }
 function renderRatingPicker(){
   document.querySelectorAll("[data-rating]").forEach(b=>b.classList.toggle("active",Number(b.dataset.rating)<=cookSelectedRating));
@@ -518,7 +577,7 @@ function finishCookReturnHome(){
   $("active-timer-card").hidden=true;
 
   clearCookSession();
-  if($("cook-finish-dialog").open)$("cook-finish-dialog").close();
+  closeDialogSafely($("cook-finish-dialog"));
   setPage("today");
   refreshSmartHome();
 }
