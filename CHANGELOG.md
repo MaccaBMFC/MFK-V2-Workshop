@@ -1,12 +1,20 @@
-# Changelog
+# MFK Changelog
 
-## v1.3.0-RC1 — Cooking Intelligence
-- Persistent active cooking sessions stored in Supabase.
-- Resume across signed-in devices.
-- Reliable Resume Later, Finish Cooking and Stop Cooking flow.
-- Exit and finish experiences moved inside Cook Mode to avoid competing browser dialogs.
-- Completed dinner state on Today.
-- Existing v1.2 planner, shopping, recipe manager, timers, journal and analytics retained.
+## v1.3.0 RC2 — Cooking Intelligence
 
-## v1.2.0 — Kitchen Assistant
-- Smart Home, Meal Planner, Shopping Engine, Cook Mode, timers, journal and analytics.
+### Fixed
+- Cooking Session card now disappears immediately after **Finish Cooking**.
+- Cooking Session card now disappears immediately after **Stop Cooking**.
+- Added an explicit CSS rule for `[hidden]` session cards.
+- Updated the service-worker cache identifier so RC1 styling cannot remain cached.
+
+### Retained
+- Supabase-backed persistent cooking sessions.
+- Resume Later and cross-device Resume.
+- In-Cook-Mode exit and finish overlays.
+- Dinner Complete state.
+- Kitchen Journal and Analytics.
+- Full v1.2 Planner, Shopping and Recipe functionality.
+
+## v1.3.0 RC1 — Cooking Intelligence
+- Introduced Supabase-backed active cooking sessions.

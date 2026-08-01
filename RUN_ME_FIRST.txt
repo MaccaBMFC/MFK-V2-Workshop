@@ -1,29 +1,46 @@
-MFK v1.3.0 RC1 — COOKING INTELLIGENCE
+MFK v1.3.0 RC2 — COOKING INTELLIGENCE
 
-THIS IS A DEVELOPMENT RELEASE CANDIDATE.
-Do not change GitHub Pages away from main.
+WHY RC2 EXISTS
 
-1. SUPABASE
-Run MFK_V1.3.0_RC1_Cooking_Intelligence.sql
-Choose Run without automatic RLS changes.
+RC1 correctly deleted the Supabase active cooking session after Finish or Stop.
+However, the Cooking Session card's CSS used `display: flex`, which overrode the
+browser's built-in styling for the HTML `hidden` attribute.
 
-2. GITHUB DEVELOPMENT BRANCH
-Upload the COMPLETE contents of this package to the root of development.
-Keep your working config.js (the package contains config.example.js only).
-Commit message: MFK v1.3.0 RC1 Cooking Intelligence
+The card therefore remained visible even though there was no session left to resume.
 
-3. TESTING
-Because GitHub Pages remains on main, test development using one of:
-- GitHub Codespaces / local server, or
-- temporarily configure a separate Pages repository for RC testing.
-Do not merge development into main until RELEASE_CHECKLIST.md passes.
+NO NEW SQL REQUIRED
 
-4. FIRST COOK TEST
-- Start tonight's recipe.
-- Go to Step 2.
-- X → Resume later.
-- Return and press Resume.
-- X → Keep Cooking.
-- X → Stop Cooking; confirm Resume disappears.
-- Start again and Finish Cooking; save a rating/note.
-- Confirm Today says Dinner complete and Analytics updates.
+If you already ran the RC1 Supabase migration, do not run it again.
+
+UPLOAD TO THE `development` BRANCH
+
+Upload the complete contents of this package to the repository root.
+
+Keep your existing working:
+- config.js
+
+Suggested commit:
+MFK v1.3.0 RC2 hide completed cooking sessions
+
+REFRESH
+
+After GitHub Pages redeploys:
+- Desktop: Ctrl + Shift + R
+- Installed app: completely close and reopen it
+
+FOCUSED RC2 TEST
+
+1. Start Bacon Fingers.
+2. Move to Step 2.
+3. Choose Resume Later.
+4. Confirm the Cooking Session card appears.
+5. Resume and choose Stop Cooking.
+6. Confirm the card disappears immediately.
+7. Start again and choose Finish Cooking.
+8. Complete or skip the journal.
+9. Confirm:
+   - Dinner Complete appears
+   - Cooking Session card is gone
+   - Resume button is gone
+
+Then quickly verify Planner, Shopping and Recipes still open normally.

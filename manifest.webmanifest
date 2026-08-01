@@ -1,7 +1,7 @@
 {
   "name": "MFK \u2014 Macca's Family Kitchen",
   "short_name": "MFK",
-  "description": "MFK v1.3.0 RC1 Cooking Intelligence \u2014 persistent Cook Mode across devices.",
+  "description": "MFK v1.3.0 RC2 \u2014 Cooking Intelligence",
   "start_url": "./#today",
   "display": "standalone",
   "background_color": "#f5efe4",

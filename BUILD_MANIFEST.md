@@ -1,10 +1,10 @@
 # Build Manifest
 
-- Version: 1.3.0-RC1
-- Codename: Cooking Intelligence
-- Base: MFK v1.2.0 Golden Master
-- Branch: development
-- Release class: Complete Release Candidate
-- Database migration: `MFK_V1.3.0_RC1_Cooking_Intelligence.sql`
-- Production target: Not approved; main remains v1.2.0 Stable
-- Known issue policy: RC must pass complete regression testing before promotion
+- Product: MFK — Macca's Family Kitchen
+- Version: 1.3.0 RC2
+- Release type: Release Candidate
+- Source: v1.3.0 RC1 complete build
+- Database migration: Same as RC1; no additional SQL
+- Primary fix: `resume-cooking-card[hidden] { display: none !important; }`
+- Production branch: `main` remains unchanged
+- Test branch: `development`

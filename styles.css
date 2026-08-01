@@ -481,3 +481,9 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
 .dinner-complete-card{background:linear-gradient(135deg,#2d5a48,#3c745d)!important}
 .session-sync-state{font-size:.72rem;color:rgba(255,255,255,.7)}
 @media(max-width:650px){.cook-overlay{padding:0}.cook-overlay-card{min-height:100%;border-radius:0;padding:30px 18px;display:grid;align-content:center}}
+
+
+/* MFK v1.3.0 RC2 — hidden cooking-session cards must actually disappear */
+.resume-cooking-card[hidden]{
+  display:none !important;
+}
