@@ -233,35 +233,36 @@ function renderResumeCooking(){
   const steps=managerLineArray(recipe?.method);
 
   if(!recipe||!steps.length){
-    clearCookSession();
-    card.hidden=true;
-    return;
-  }
-
-  const stepIndex=Number(saved.stepIndex||0);
-
-  // Reaching the final instruction is no longer considered resumable.
-  if(stepIndex>=steps.length-1){
     localStorage.removeItem(COOK_SESSION_KEY);
-    cookSession=null;
     card.hidden=true;
     return;
   }
+
+  const stepIndex=Math.min(
+    Math.max(0,Number(saved.stepIndex||0)),
+    steps.length-1
+  );
 
   card.hidden=false;
   $("resume-cooking-title").textContent="Resume Cooking";
-  $("resume-cooking-detail").textContent=`${recipe.title} · Step ${stepIndex+1} of ${steps.length}`;
+  $("resume-cooking-detail").textContent=
+    `${recipe.title} · Step ${stepIndex+1} of ${steps.length}`;
 }
-$("resume-cooking-button").onclick=()=>{
+
+$("resume-cooking-button").onclick=async()=>{
   const saved=getSavedCookSession();
-  if(!saved)return renderResumeCooking();
+  if(!saved){
+    renderResumeCooking();
+    return;
+  }
+
   const recipe=recipes.find(r=>r.id===saved.recipeId);
-  const steps=managerLineArray(recipe?.method);
-  if(!recipe||Number(saved.stepIndex||0)>=steps.length-1){
+  if(!recipe){
     clearCookSession();
     return;
   }
-  startCookMode(saved.recipeId,saved.servings,true);
+
+  await startCookMode(saved.recipeId,saved.servings,true);
 };
 
 function scaledRecipeIngredients(recipeId,servings){
@@ -364,33 +365,38 @@ $("toggle-cook-ingredients").onclick=()=>{
   const panel=$("cook-scaled-ingredients");
   panel.hidden=!panel.hidden;
 };
-$("cook-mode-exit").onclick=()=>{
+$("cook-mode-exit").onclick=async()=>{
   if(!cookSession){
-    $("cook-mode-dialog").close();
-    releaseCookWakeLock();
+    if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+    await releaseCookWakeLock();
     return;
   }
 
-  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
-  const steps=managerLineArray(recipe?.method);
-
-  // On the final instruction, leaving means the cook is ready to finish.
-  if(steps.length&&cookSession.stepIndex>=steps.length-1){
-    openCookFinish();
-    return;
-  }
-
+  // A browser cannot display two modal dialogs at once.
+  // Close Cook Mode first, then show the intentional exit choice.
+  if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+  await releaseCookWakeLock();
   $("cook-exit-dialog").showModal();
 };
 
-$("cook-exit-cancel").onclick=()=>$("cook-exit-dialog").close();
+$("cook-exit-cancel").onclick=async()=>{
+  $("cook-exit-dialog").close();
+
+  if(!cookSession)return;
+
+  $("cook-mode-dialog").showModal();
+  renderCookStep();
+  await requestCookWakeLock();
+  try{await screen.orientation?.lock?.("portrait")}catch{}
+};
 
 $("cook-resume-later").onclick=async()=>{
-  saveCookSession();
+  if(cookSession)saveCookSession();
   $("cook-exit-dialog").close();
-  $("cook-mode-dialog").close();
   await releaseCookWakeLock();
+  setPage("today");
   renderResumeCooking();
+  await refreshSmartHome();
 };
 
 $("cook-finish-now").onclick=()=>{
@@ -403,9 +409,9 @@ $("cook-stop-now").onclick=async()=>{
   cookTimerInterval=null;
   cookTimerEnd=null;
   $("active-timer-card").hidden=true;
+
   clearCookSession();
   $("cook-exit-dialog").close();
-  $("cook-mode-dialog").close();
   await releaseCookWakeLock();
   setPage("today");
   await refreshSmartHome();
@@ -465,18 +471,25 @@ $("cancel-active-timer").onclick=()=>{
 };
 
 function openCookFinish(){
-  if(cookSession){
-    cookSession.completed=true;
-    localStorage.removeItem(COOK_SESSION_KEY);
-  }
+  if(!cookSession)return;
+
+  // The cook is no longer resumable as soon as the finish screen opens.
+  cookSession.completed=true;
+  localStorage.removeItem(COOK_SESSION_KEY);
   renderResumeCooking();
-  $("cook-mode-dialog").close();
+
+  if($("cook-exit-dialog").open)$("cook-exit-dialog").close();
+  if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+
   releaseCookWakeLock();
   cookSelectedRating=0;
   $("cook-finish-note").value="";
   $("cook-finish-message").textContent="";
   renderRatingPicker();
-  $("cook-finish-dialog").showModal();
+
+  if(!$("cook-finish-dialog").open){
+    $("cook-finish-dialog").showModal();
+  }
 }
 function renderRatingPicker(){
   document.querySelectorAll("[data-rating]").forEach(b=>b.classList.toggle("active",Number(b.dataset.rating)<=cookSelectedRating));
@@ -499,8 +512,13 @@ async function saveCookCompletion(saveNote=true){
   finishCookReturnHome();
 }
 function finishCookReturnHome(){
+  clearInterval(cookTimerInterval);
+  cookTimerInterval=null;
+  cookTimerEnd=null;
+  $("active-timer-card").hidden=true;
+
   clearCookSession();
-  $("cook-finish-dialog").close();
+  if($("cook-finish-dialog").open)$("cook-finish-dialog").close();
   setPage("today");
   refreshSmartHome();
 }
