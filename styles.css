@@ -196,3 +196,54 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
 .meal-picker-actions{display:flex;gap:8px}
 @media(max-width:1050px){.planner-days{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.planner-days{grid-template-columns:1fr}.planner-day-card{min-height:auto}.planner-toolbar{grid-template-columns:44px 1fr 44px;padding:16px}.week-nav-button{width:42px;height:42px}.meal-picker-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.meal-picker-shell{padding:20px 15px 35px}.meal-type-grid{grid-template-columns:repeat(2,1fr)}.meal-picker-recipe-list{grid-template-columns:1fr;max-height:300px}.meal-picker-footer{grid-template-columns:1fr}.meal-picker-actions .button{flex:1}}
+
+
+/* ===== Sprint 2 Task 2: Recipe Picker Polish ===== */
+.picker-search-wrap{
+  display:flex;align-items:center;border:1px solid var(--line);border-radius:14px;
+  background:white;padding:0 13px;font-size:1.35rem
+}
+.picker-search-wrap #meal-picker-search-input{
+  border:0;outline:0;box-shadow:none;background:transparent;padding:13px 9px
+}
+.picker-filter-block{margin-top:14px}
+.picker-filter-label{
+  display:block;color:var(--muted);font-size:.69rem;font-weight:850;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px
+}
+.picker-filter-row{
+  display:flex;gap:7px;overflow:auto;padding:1px 0 4px;scrollbar-width:none
+}
+.picker-filter-row::-webkit-scrollbar{display:none}
+.picker-chip{
+  flex:0 0 auto;border:1px solid var(--line);background:white;color:var(--ink);
+  border-radius:999px;padding:8px 11px;font-size:.76rem;font-weight:800;cursor:pointer
+}
+.picker-chip.active{background:var(--forest);color:white;border-color:var(--forest)}
+.picker-result-heading{
+  display:flex;justify-content:space-between;align-items:center;gap:15px;
+  margin:16px 2px 7px
+}
+.picker-result-heading strong{font-family:Georgia,serif;font-size:1.08rem}
+.meal-picker-recipe{
+  position:relative;min-height:76px;transition:transform .15s,box-shadow .15s
+}
+.meal-picker-recipe:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(31,51,42,.08)}
+.meal-picker-recipe.active:after{
+  content:"✓";position:absolute;right:11px;top:11px;width:24px;height:24px;
+  display:grid;place-items:center;border-radius:50%;background:var(--forest);color:white;
+  font-size:.75rem;font-weight:900
+}
+.picker-recipe-copy{min-width:0;padding-right:25px}
+.picker-recipe-copy strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.picker-recipe-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:3px}
+.picker-recipe-meta small{font-size:.7rem}
+.meal-picker-empty{
+  grid-column:1/-1;padding:35px 18px;text-align:center;color:var(--muted)
+}
+.servings-control button{cursor:pointer;font-size:1.08rem}
+#meal-picker-servings{font-weight:850;color:var(--forest)}
+@media(max-width:650px){
+  .picker-filter-block{margin-top:12px}
+  .meal-picker-recipe{min-height:70px}
+}

@@ -3,7 +3,7 @@ const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
 const $=id=>document.getElementById(id);
-let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null;
+let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All";
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -512,21 +512,99 @@ function plannerOpenPicker(date){
   plannerEditingDate=date;const e=plannerDaysData.find(x=>x.meal_date===date);
   plannerSelectedType=e?.meal_type||"recipe";plannerSelectedRecipeId=e?.recipe_id||null;
   $("meal-picker-date-title").textContent=plannerLong(plannerParse(date));$("meal-picker-search-input").value="";
+  plannerPickerCategory="All";plannerPickerMember="All";
   $("meal-picker-custom-name").value=e?.custom_meal_name||"";$("meal-picker-notes").value=e?.notes||"";
   const r=recipes.find(x=>x.id===plannerSelectedRecipeId);
   $("meal-picker-servings").value=e?.planned_servings||r?.base_servings||r?.serves||6;
   document.querySelectorAll(".meal-type-option").forEach(b=>b.classList.toggle("active",b.dataset.mealType===plannerSelectedType));
-  plannerPanels();plannerRenderRecipes();$("meal-picker-dialog").showModal();
+  plannerPanels();plannerRenderPickerFilters();plannerRenderRecipes();$("meal-picker-dialog").showModal();
 }
 function plannerPanels(){$("meal-picker-recipe-panel").hidden=plannerSelectedType!=="recipe";$("meal-picker-custom-panel").hidden=plannerSelectedType!=="custom"}
 document.querySelectorAll(".meal-type-option").forEach(b=>b.onclick=()=>{plannerSelectedType=b.dataset.mealType;document.querySelectorAll(".meal-type-option").forEach(x=>x.classList.toggle("active",x===b));plannerPanels()});
+function plannerRenderPickerFilters(){
+  const categoryContainer=$("meal-picker-category-filters");
+  const memberContainer=$("meal-picker-family-filters");
+  if(!categoryContainer||!memberContainer)return;
+
+  categoryContainer.innerHTML=[
+    `<button class="picker-chip ${plannerPickerCategory==="All"?"active":""}" data-picker-category="All">All</button>`,
+    ...categories.map(c=>`<button class="picker-chip ${plannerPickerCategory===c.name?"active":""}" data-picker-category="${esc(c.name)}">${esc(c.icon||"🍽️")} ${esc(c.name)}</button>`)
+  ].join("");
+
+  memberContainer.innerHTML=[
+    `<button class="picker-chip ${plannerPickerMember==="All"?"active":""}" data-picker-member="All">Everyone</button>`,
+    ...members.map(m=>`<button class="picker-chip ${plannerPickerMember===m.id?"active":""}" data-picker-member="${m.id}">${esc(m.avatar_emoji||"👤")} ${esc(m.display_name)}</button>`)
+  ].join("");
+
+  categoryContainer.querySelectorAll("[data-picker-category]").forEach(b=>b.onclick=()=>{
+    plannerPickerCategory=b.dataset.pickerCategory;
+    plannerRenderPickerFilters();
+    plannerRenderRecipes();
+  });
+  memberContainer.querySelectorAll("[data-picker-member]").forEach(b=>b.onclick=()=>{
+    plannerPickerMember=b.dataset.pickerMember;
+    plannerRenderPickerFilters();
+    plannerRenderRecipes();
+  });
+}
+
 function plannerRenderRecipes(){
   const q=$("meal-picker-search-input").value.trim().toLowerCase();
-  const list=recipes.filter(r=>!q||[r.title,r.category,r.story].join(" ").toLowerCase().includes(q));
-  $("meal-picker-recipe-list").innerHTML=list.map(r=>`<button class="meal-picker-recipe ${plannerSelectedRecipeId===r.id?"active":""}" data-picker-recipe="${r.id}"><span class="emoji">${esc(r.emoji||"🍽️")}</span><span><strong>${esc(r.title)}</strong><small>${esc(r.category||"Recipe")} · Serves ${esc(r.base_servings??r.serves??"—")}</small></span></button>`).join("");
-  document.querySelectorAll("[data-picker-recipe]").forEach(b=>b.onclick=()=>{plannerSelectedRecipeId=b.dataset.pickerRecipe;const r=recipes.find(x=>x.id===plannerSelectedRecipeId);if(r)$("meal-picker-servings").value=r.base_servings||r.serves||6;plannerRenderRecipes()});
+
+  const favouriteRecipeIds=plannerPickerMember==="All"
+    ? null
+    : new Set(recipeFavourites
+        .filter(f=>f.family_member_id===plannerPickerMember)
+        .map(f=>f.recipe_id));
+
+  const list=recipes.filter(r=>{
+    const searchMatch=!q||[
+      r.title,r.category,r.story,
+      ...(Array.isArray(r.ingredients)?r.ingredients:[])
+    ].join(" ").toLowerCase().includes(q);
+
+    const categoryMatch=plannerPickerCategory==="All"||r.category===plannerPickerCategory;
+    const memberMatch=plannerPickerMember==="All"||favouriteRecipeIds.has(r.id);
+    return searchMatch&&categoryMatch&&memberMatch;
+  });
+
+  $("meal-picker-result-count").textContent=`${list.length} recipe${list.length===1?"":"s"}`;
+
+  $("meal-picker-recipe-list").innerHTML=list.length
+    ? list.map(r=>{
+        const lovedBy=members
+          .filter(m=>recipeFavourites.some(f=>f.recipe_id===r.id&&f.family_member_id===m.id))
+          .map(m=>m.display_name);
+
+        return `<button class="meal-picker-recipe ${plannerSelectedRecipeId===r.id?"active":""}" data-picker-recipe="${r.id}">
+          <span class="emoji">${esc(r.emoji||"🍽️")}</span>
+          <span class="picker-recipe-copy">
+            <strong>${esc(r.title)}</strong>
+            <span class="picker-recipe-meta">
+              <small>${esc(r.category||"Recipe")}</small>
+              <small>Serves ${esc(r.base_servings??r.serves??"—")}</small>
+              ${lovedBy.length?`<small>❤️ ${esc(lovedBy.join(", "))}</small>`:""}
+            </span>
+          </span>
+        </button>`;
+      }).join("")
+    : '<div class="meal-picker-empty">No recipes match those filters.</div>';
+
+  document.querySelectorAll("[data-picker-recipe]").forEach(b=>b.onclick=()=>{
+    plannerSelectedRecipeId=b.dataset.pickerRecipe;
+    const r=recipes.find(x=>x.id===plannerSelectedRecipeId);
+    if(r)$("meal-picker-servings").value=r.base_servings||r.serves||6;
+    plannerRenderRecipes();
+  });
 }
 $("meal-picker-search-input").oninput=plannerRenderRecipes;
+$("meal-picker-clear-filters").onclick=()=>{
+  $("meal-picker-search-input").value="";
+  plannerPickerCategory="All";
+  plannerPickerMember="All";
+  plannerRenderPickerFilters();
+  plannerRenderRecipes();
+};
 $("meal-servings-minus").onclick=()=>{$("meal-picker-servings").value=Math.max(1,Number($("meal-picker-servings").value||1)-1)};
 $("meal-servings-plus").onclick=()=>{$("meal-picker-servings").value=Math.max(1,Number($("meal-picker-servings").value||1)+1)};
 $("meal-picker-apply").onclick=()=>{

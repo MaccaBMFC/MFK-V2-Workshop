@@ -256,7 +256,26 @@
       </div>
 
       <section id="meal-picker-recipe-panel">
-        <input id="meal-picker-search-input" type="search" placeholder="Search recipes…">
+        <div class="picker-search-wrap">
+          <span>⌕</span>
+          <input id="meal-picker-search-input" type="search" placeholder="Search recipes…">
+        </div>
+
+        <div class="picker-filter-block">
+          <span class="picker-filter-label">Category</span>
+          <div id="meal-picker-category-filters" class="picker-filter-row"></div>
+        </div>
+
+        <div class="picker-filter-block">
+          <span class="picker-filter-label">Loved by</span>
+          <div id="meal-picker-family-filters" class="picker-filter-row"></div>
+        </div>
+
+        <div class="picker-result-heading">
+          <strong id="meal-picker-result-count">Recipes</strong>
+          <button id="meal-picker-clear-filters" class="text-button" type="button">Clear filters</button>
+        </div>
+
         <div id="meal-picker-recipe-list" class="meal-picker-recipe-list"></div>
       </section>
 
@@ -265,7 +284,7 @@
       </section>
 
       <div class="meal-picker-footer">
-        <label>Servings
+        <label>Cooking for
           <div class="servings-control">
             <button id="meal-servings-minus" type="button">−</button>
             <input id="meal-picker-servings" type="number" min="1" step="1" value="6">
