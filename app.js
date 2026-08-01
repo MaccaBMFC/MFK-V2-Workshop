@@ -3,7 +3,7 @@ const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
 const $=id=>document.getElementById(id);
-let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All";
+let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[];
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -38,7 +38,7 @@ async function init(){
   if(!db){$("recipe-status").hidden=false;$("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";return}
   const {data:{session}}=await db.auth.getSession();currentUser=session?.user||null;applySession();
   await Promise.all([loadPublicData(),loadPrivateData()]);
-  plannerSetWeek(new Date());await plannerOpenWeek(plannerWeekStart);
+  plannerSetWeek(new Date());await plannerOpenWeek(plannerWeekStart);await refreshSmartHome();
 }
 async function loadPublicData(){
   const [r,c,m,i,ri,rf]=await Promise.all([
@@ -65,7 +65,7 @@ async function loadPrivateData(){
     db.from("shopping_items").select("*").order("sort_order").order("created_at")
   ]);
   if(l.error||i.error){console.error(l.error||i.error);return}
-  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();
+  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();refreshSmartHome();
 }
 function renderFilters(){
   $("category-filters").innerHTML=[
@@ -173,6 +173,249 @@ function formatShoppingQuantity(value){
   if(Number.isInteger(n))return String(n);
   return String(Math.round(n*100)/100);
 }
+
+
+/* =========================================================
+   SPRINT 3 — SMART HOME SCREEN
+========================================================= */
+
+function homeGreeting(){
+  const hour=new Date().getHours();
+  if(hour<12)return {emoji:"☀️",text:"Good morning"};
+  if(hour<17)return {emoji:"🌤️",text:"Good afternoon"};
+  return {emoji:"🌙",text:"Good evening"};
+}
+
+function homeMealInfo(entry){
+  if(!entry)return {
+    emoji:"🍽️",
+    title:"Nothing planned yet",
+    story:"Choose tonight's meal and MFK will take it from there.",
+    type:"none",
+    button:"Choose a meal"
+  };
+
+  if(entry.meal_type==="recipe"){
+    const recipe=recipes.find(r=>r.id===entry.recipe_id);
+    return {
+      emoji:recipe?.emoji||"🍽️",
+      title:recipe?.title||"Recipe",
+      story:recipe?.story||"Tonight's recipe is ready when you are.",
+      type:"recipe",
+      recipe,
+      servings:entry.planned_servings||recipe?.base_servings||recipe?.serves||"—"
+    };
+  }
+
+  const specials={
+    leftovers:{
+      emoji:"🥡",title:"Leftovers tonight",story:"No full cook required — future you planned this beautifully.",type:"leftovers"
+    },
+    takeaway:{
+      emoji:"🍕",title:"Takeaway night",story:"Enjoy the night off. MFK officially approves.",type:"takeaway"
+    },
+    eating_out:{
+      emoji:"🍽️",title:"Eating out tonight",story:"Kitchen closed. Go enjoy yourselves.",type:"eating_out"
+    },
+    free_night:{
+      emoji:"🌙",title:"Free night",story:"No plan, no pressure. See where the evening takes you.",type:"free_night"
+    },
+    custom:{
+      emoji:"✏️",title:entry.custom_meal_name||"Custom meal",story:entry.notes||"Tonight's custom plan is ready.",type:"custom"
+    }
+  };
+  return specials[entry.meal_type]||specials.free_night;
+}
+
+function homeDateEntry(days,date){
+  const key=plannerIso(date);
+  return days.find(x=>x.meal_date===key)||null;
+}
+
+async function refreshSmartHome(){
+  if(!$("today-greeting")||!db)return;
+
+  const greeting=homeGreeting();
+  $("today-greeting").textContent=`${greeting.text}, Macca.`;
+  $("today-eyebrow").textContent=`${greeting.emoji} Today`;
+
+  if(!currentUser){
+    renderSmartHomeLoggedOut();
+    return;
+  }
+
+  try{
+    const today=new Date();
+    const weekStart=plannerSaturday(today);
+    const start=plannerIso(weekStart);
+    const end=plannerIso(plannerAdd(weekStart,6));
+
+    const {data:plans,error}=await db.from("meal_plans")
+      .select("*")
+      .eq("start_date",start)
+      .eq("end_date",end)
+      .limit(1);
+    if(error)throw error;
+
+    homeCurrentPlan=plans?.[0]||null;
+    homeCurrentDays=[];
+
+    if(homeCurrentPlan){
+      const {data:days,error:daysError}=await db.from("meal_plan_days")
+        .select("*")
+        .eq("meal_plan_id",homeCurrentPlan.id)
+        .order("meal_date");
+      if(daysError)throw daysError;
+      homeCurrentDays=days||[];
+    }
+
+    renderSmartHome(today);
+  }catch(error){
+    $("today-lede").textContent="MFK couldn't load today's kitchen briefing.";
+    console.error(error);
+  }
+}
+
+function renderSmartHomeLoggedOut(){
+  $("today-lede").textContent="Sign in for tonight's dinner, this week's plan and your shopping briefing.";
+  $("tonight-title").textContent="Sign in to see tonight";
+  $("tonight-story").textContent="Your family kitchen briefing is waiting.";
+  $("tonight-visual").textContent="🔐";
+  $("tonight-meta").hidden=true;
+  $("cook-tonight-button").hidden=true;
+  $("choose-tonight-button").hidden=false;
+  $("week-preview").innerHTML='<div class="empty-state compact"><span>🔐</span><p>Sign in to load your week.</p></div>';
+  $("tomorrow-title").textContent="Sign in to see tomorrow";
+  $("tomorrow-detail").textContent="Your next meal will appear here.";
+  $("tomorrow-emoji").textContent="🔐";
+  $("week-status-title").textContent="Sign in required";
+  $("week-status-icon").textContent="🔐";
+  $("week-readiness-list").innerHTML="";
+}
+
+function renderSmartHome(today){
+  const tonightEntry=homeDateEntry(homeCurrentDays,today);
+  const tomorrowDate=plannerAdd(today,1);
+  const tomorrowEntry=homeDateEntry(homeCurrentDays,tomorrowDate);
+  const tonight=homeMealInfo(tonightEntry);
+  const tomorrow=homeMealInfo(tomorrowEntry);
+
+  const tonightCard=document.querySelector(".tonight-card");
+  tonightCard.classList.remove("special-night","free-night","leftovers-night","eating-out-night","no-plan");
+  if(tonight.type==="takeaway"||tonight.type==="custom")tonightCard.classList.add("special-night");
+  if(tonight.type==="free_night")tonightCard.classList.add("free-night");
+  if(tonight.type==="leftovers")tonightCard.classList.add("leftovers-night");
+  if(tonight.type==="eating_out")tonightCard.classList.add("eating-out-night");
+  if(tonight.type==="none")tonightCard.classList.add("no-plan");
+
+  $("tonight-visual").textContent=tonight.emoji;
+  $("tonight-title").textContent=tonight.title;
+  $("tonight-story").textContent=tonight.story;
+  $("tonight-eyebrow").textContent=tonight.type==="recipe"?"Tonight's dinner":"Tonight";
+  $("tonight-meta").hidden=tonight.type!=="recipe";
+  $("cook-tonight-button").hidden=tonight.type!=="recipe";
+  $("choose-tonight-button").hidden=tonight.type==="recipe";
+
+  if(tonight.type==="recipe"){
+    $("tonight-meta").innerHTML=`
+      <span>👥 Cooking for ${esc(tonight.servings)}</span>
+      <span>⏱ Prep ${esc(tonight.recipe?.prep||"—")}</span>
+      <span>🔥 Cook ${esc(tonight.recipe?.cook||"—")}</span>`;
+    $("cook-tonight-button").dataset.recipeId=tonight.recipe?.id||"";
+  }
+
+  $("tomorrow-title").textContent=tomorrow.title;
+  $("tomorrow-detail").textContent=tomorrow.type==="recipe"
+    ? `Cooking for ${tomorrow.servings} · ${tomorrow.recipe?.prep||"—"} prep`
+    : tomorrow.story;
+  $("tomorrow-emoji").textContent=tomorrow.emoji;
+
+  renderHomeWeekPreview();
+  renderHomeReadiness(today);
+  document.querySelector("#page-today .page-shell")?.classList.add("home-ready-pulse");
+  setTimeout(()=>document.querySelector("#page-today .page-shell")?.classList.remove("home-ready-pulse"),600);
+}
+
+function renderHomeWeekPreview(){
+  if(!homeCurrentPlan){
+    $("week-preview").innerHTML='<div class="empty-state compact"><span>📅</span><p>No week planned yet.</p></div>';
+    return;
+  }
+
+  const rows=[];
+  for(let i=0;i<7;i++){
+    const date=plannerAdd(plannerSaturday(new Date()),i);
+    const entry=homeDateEntry(homeCurrentDays,date);
+    const meal=homeMealInfo(entry);
+    rows.push(`<div class="week-preview-row">
+      <span class="week-preview-day">${plannerDay(date).slice(0,3)}</span>
+      <span class="week-preview-emoji">${esc(meal.emoji)}</span>
+      <span class="week-preview-meal">${esc(meal.title)}</span>
+      <span class="week-preview-servings">${entry?.meal_type==="recipe"?`👥 ${esc(entry.planned_servings||"—")}`:""}</span>
+    </div>`);
+  }
+  $("week-preview").innerHTML=`<div class="week-preview-list">${rows.join("")}</div>`;
+}
+
+function renderHomeReadiness(today){
+  const plannedCount=homeCurrentDays.length;
+  const missingCount=Math.max(0,7-plannedCount);
+  const generated=!!homeCurrentPlan?.shopping_generated_at;
+  const tonightEntry=homeDateEntry(homeCurrentDays,today);
+  const weekEnd=plannerAdd(plannerSaturday(today),6);
+  const isFriday=today.getDay()===5;
+
+  let title="Week needs a little attention";
+  let icon="🧭";
+
+  if(!homeCurrentPlan){
+    title="Ready to plan your week";
+    icon="📅";
+  }else if(missingCount===0&&generated){
+    title=isFriday?"Week complete — ready for the next one":"You're ready to cook";
+    icon=isFriday?"✅":"🍳";
+  }else if(missingCount===0){
+    title="Meals planned — shopping is next";
+    icon="🛒";
+  }
+
+  $("week-status-title").textContent=title;
+  $("week-status-icon").textContent=icon;
+
+  const items=[
+    {
+      ok:!!homeCurrentPlan,
+      text:homeCurrentPlan?`${plannedCount} meal${plannedCount===1?"":"s"} planned`:"No saved meal plan"
+    },
+    {
+      ok:missingCount===0,
+      text:missingCount===0?"Every day has a plan":`${missingCount} day${missingCount===1?"":"s"} still open`
+    },
+    {
+      ok:generated,
+      text:generated?"Shopping lists generated":"Shopping lists not generated yet"
+    },
+    {
+      ok:!!tonightEntry,
+      text:tonightEntry?"Tonight is sorted":"Tonight still needs a decision"
+    }
+  ];
+
+  $("week-readiness-list").innerHTML=items.map(x=>`
+    <div class="readiness-item">
+      <span>${x.ok?"✅":"○"}</span>
+      <strong>${esc(x.text)}</strong>
+    </div>`).join("");
+
+  $("plan-week-button").textContent=homeCurrentPlan
+    ? (isFriday?"✨ Plan My Week":"✏️ Edit This Week")
+    : "✨ Plan My Week";
+}
+
+$("cook-tonight-button").onclick=()=>{
+  const id=$("cook-tonight-button").dataset.recipeId;
+  if(id)openRecipe(id);
+};
 
 function roundScaledQuantity(quantity,unit){
   if(quantity===null||quantity===undefined)return null;
@@ -287,6 +530,7 @@ async function generateShoppingLists(){
     if(planError)throw planError;
 
     await loadPrivateData();
+    await refreshSmartHome();
     $("shopping-generation-status").textContent=`Lists generated: ${payload.length} combined items.`;
     $("shopping-generation-status").classList.add("success");
   }catch(error){
@@ -309,6 +553,7 @@ async function resetGeneratedShopping(){
   if(error){alert(error.message);return}
 
   await loadPrivateData();
+  await refreshSmartHome();
   $("shopping-generation-status").textContent="Generated recipe items cleared. Manual items remain.";
   $("shopping-generation-status").classList.add("success");
 }
@@ -676,6 +921,7 @@ async function plannerOpenWeek(date=plannerWeekStart||new Date()){
     }else $("planner-status").textContent="New week — choose your meals.";
   }
   plannerRenderDays();
+  refreshSmartHome();
 }
 function plannerEntry(date){return plannerDaysData.find(x=>x.meal_date===plannerIso(date))||null}
 function plannerLabel(e){

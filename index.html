@@ -35,23 +35,23 @@
       <div class="page-shell">
         <div class="welcome-row">
           <div>
-            <p class="eyebrow">Today</p>
-            <h1>Good morning, Macca.</h1>
-            <p class="lede">Everything you need for tonight, this week, and the next shop.</p>
+            <p id="today-eyebrow" class="eyebrow">Today</p>
+            <h1 id="today-greeting">Good morning, Macca.</h1>
+            <p id="today-lede" class="lede">Everything you need for tonight, this week, and the next shop.</p>
           </div>
           <button id="plan-week-button" class="button primary large">✨ Plan My Week</button>
         </div>
 
         <section class="tonight-card">
-          <div class="tonight-visual">🍽️</div>
+          <div id="tonight-visual" class="tonight-visual">🍽️</div>
           <div class="tonight-copy">
-            <p class="eyebrow light">Tonight's dinner</p>
+            <p id="tonight-eyebrow" class="eyebrow light">Tonight's dinner</p>
             <h2 id="tonight-title">Nothing planned yet</h2>
             <p id="tonight-story">Your planned meal will appear here automatically.</p>
             <div id="tonight-meta" class="tonight-meta" hidden></div>
             <div class="button-row">
               <button id="choose-tonight-button" class="button cream">Choose a meal</button>
-              <button id="cook-tonight-button" class="button gold" hidden>👨‍🍳 Cook Tonight</button>
+              <button id="cook-tonight-button" class="button gold" hidden>🍳 Start Tonight's Cook</button>
             </div>
           </div>
         </section>
@@ -95,6 +95,30 @@
                 <span><strong>Pantry</strong><small><b id="pantry-count">0</b> items</small></span>
               </button>
             </div>
+          </section>
+        </div>
+
+        <div class="home-intelligence-grid">
+          <section class="panel tomorrow-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Tomorrow</p>
+                <h2 id="tomorrow-title">Nothing planned</h2>
+              </div>
+              <span id="tomorrow-emoji" class="tomorrow-emoji">📅</span>
+            </div>
+            <p id="tomorrow-detail" class="muted">Plan tomorrow's meal when you're ready.</p>
+          </section>
+
+          <section class="panel readiness-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Week status</p>
+                <h2 id="week-status-title">Checking your week…</h2>
+              </div>
+              <span id="week-status-icon" class="status-hero-icon">⏳</span>
+            </div>
+            <div id="week-readiness-list" class="week-readiness-list"></div>
           </section>
         </div>
       </div>
@@ -154,8 +178,8 @@
         <div class="page-heading">
           <div>
             <p class="eyebrow">Shopping</p>
-            <h1>Two simple lists</h1>
-            <p class="lede">Manual items during the week. Generated ingredients after Plan My Week.</p>
+            <h1>Three simple lists</h1>
+            <p class="lede">Add everyday items anytime. Generate recipe ingredients after planning your week.</p>
           </div>
         </div>
 

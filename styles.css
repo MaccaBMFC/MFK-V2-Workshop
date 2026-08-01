@@ -293,3 +293,40 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .shopping-action-bar>div{width:100%}
   .shopping-action-bar .button{flex:1}
 }
+
+
+/* ===== Sprint 3 Task 1: Smart Home ===== */
+.home-intelligence-grid{
+  display:grid;grid-template-columns:.7fr 1.3fr;gap:18px;margin-top:18px
+}
+.tomorrow-panel,.readiness-panel{min-height:180px}
+.tomorrow-emoji,.status-hero-icon{font-size:2.5rem}
+.week-readiness-list{display:grid;gap:9px;margin-top:18px}
+.readiness-item{
+  display:flex;align-items:center;gap:10px;border-radius:13px;
+  background:#f6f2e9;padding:10px 12px
+}
+.readiness-item strong{font-size:.9rem}
+.readiness-item span:first-child{font-size:1.1rem}
+.week-preview-list{display:grid;gap:7px}
+.week-preview-row{
+  display:grid;grid-template-columns:72px 34px 1fr auto;gap:9px;align-items:center;
+  padding:9px 4px;border-bottom:1px solid var(--line)
+}
+.week-preview-row:last-child{border-bottom:0}
+.week-preview-day{font-weight:850;color:var(--forest)}
+.week-preview-emoji{font-size:1.3rem;text-align:center}
+.week-preview-meal{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.week-preview-servings{font-size:.73rem;color:var(--muted)}
+.tonight-card.special-night{background:linear-gradient(135deg,#5e3927,#8d5a3e)}
+.tonight-card.free-night{background:linear-gradient(135deg,#304a62,#486d8c)}
+.tonight-card.leftovers-night{background:linear-gradient(135deg,#44543b,#66765b)}
+.tonight-card.eating-out-night{background:linear-gradient(135deg,#4b355d,#725183)}
+.tonight-card.no-plan{background:linear-gradient(135deg,#173d32,#255343)}
+.home-ready-pulse{animation:homePulse .5s ease-out}
+@keyframes homePulse{from{transform:translateY(4px);opacity:.4}to{transform:translateY(0);opacity:1}}
+@media(max-width:850px){.home-intelligence-grid{grid-template-columns:1fr}}
+@media(max-width:650px){
+  .week-preview-row{grid-template-columns:60px 30px 1fr}
+  .week-preview-servings{display:none}
+}
