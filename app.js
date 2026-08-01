@@ -54,7 +54,7 @@ async function loadPublicData(){
   recipes=r.data||[];categories=c.data||[];members=m.data||[];
   masterIngredients=i.data||[];structuredRows=ri.data||[];recipeFavourites=rf.data||[];
   $("settings-category-count").textContent=categories.length;$("settings-member-count").textContent=members.length;
-  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();
+  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();renderResumeCooking();
 }
 async function loadPrivateData(){
   if(!currentUser){
@@ -65,7 +65,7 @@ async function loadPrivateData(){
     db.from("shopping_items").select("*").order("sort_order").order("created_at")
   ]);
   if(l.error||i.error){console.error(l.error||i.error);return}
-  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();await loadCookLogs();refreshSmartHome();
+  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();await loadCookLogs();refreshSmartHome();renderResumeCooking();
 }
 function renderFilters(){
   $("category-filters").innerHTML=[
@@ -194,7 +194,46 @@ function formatShoppingQuantity(value){
    MFK V1.2 — KITCHEN ASSISTANT
 ========================================================= */
 
-function clearCookSession(){ cookSession=null; }
+const COOK_SESSION_KEY="mfk_active_cook_session_v12";
+
+async function loadCookLogs(){
+  if(!currentUser){cookLogs=[];return}
+  const {data,error}=await db.from("recipe_cook_logs")
+    .select("*")
+    .order("cooked_on",{ascending:false})
+    .order("created_at",{ascending:false});
+  if(error){console.error(error);cookLogs=[];return}
+  cookLogs=data||[];
+}
+
+function getSavedCookSession(){
+  try{return JSON.parse(localStorage.getItem(COOK_SESSION_KEY)||"null")}catch{return null}
+}
+function saveCookSession(){
+  if(!cookSession)return;
+  localStorage.setItem(COOK_SESSION_KEY,JSON.stringify(cookSession));
+  renderResumeCooking();
+}
+function clearCookSession(){
+  localStorage.removeItem(COOK_SESSION_KEY);
+  cookSession=null;
+  renderResumeCooking();
+}
+function renderResumeCooking(){
+  const saved=getSavedCookSession();
+  const card=$("resume-cooking-card");
+  if(!card)return;
+  if(!saved||saved.completed){card.hidden=true;return}
+  const recipe=recipes.find(r=>r.id===saved.recipeId);
+  if(!recipe){card.hidden=true;return}
+  card.hidden=false;
+  $("resume-cooking-title").textContent=`Resume ${recipe.title}`;
+  $("resume-cooking-detail").textContent=`Step ${Number(saved.stepIndex||0)+1} of ${managerLineArray(recipe.method).length}`;
+}
+$("resume-cooking-button").onclick=()=>{
+  const saved=getSavedCookSession();
+  if(saved)startCookMode(saved.recipeId,saved.servings,true);
+};
 
 function scaledRecipeIngredients(recipeId,servings){
   const recipe=recipes.find(r=>r.id===recipeId);
@@ -206,19 +245,30 @@ function scaledRecipeIngredients(recipeId,servings){
   }));
 }
 
-async function startCookMode(recipeId,servings=null){
+async function startCookMode(recipeId,servings=null,resume=false){
   const recipe=recipes.find(r=>r.id===recipeId);
-  if(!recipe)return false;
-  const effectiveServings=Number(servings||recipe.base_servings||recipe.serves||1);
-  cookSession={recipeId,servings:effectiveServings,stepIndex:0,startedAt:new Date().toISOString(),completed:false};
+  if(!recipe)return;
+
+  const saved=getSavedCookSession();
+  const steps=managerLineArray(recipe.method);
+  const effectiveServings=Number(servings||saved?.servings||recipe.base_servings||recipe.serves||1);
+
+  cookSession={
+    recipeId,
+    servings:effectiveServings,
+    stepIndex:resume&&saved?.recipeId===recipeId?Number(saved.stepIndex||0):0,
+    startedAt:resume&&saved?.recipeId===recipeId?saved.startedAt:new Date().toISOString(),
+    completed:false
+  };
+
   $("cook-mode-title").textContent=recipe.title;
   $("cook-mode-subtitle").textContent=`Cooking for ${effectiveServings} · ${recipe.prep||"—"} prep · ${recipe.cook||"—"} cook`;
   renderCookIngredients();
   renderCookStep();
+  saveCookSession();
   $("cook-mode-dialog").showModal();
   await requestCookWakeLock();
   try{await screen.orientation?.lock?.("portrait")}catch{}
-  return true;
 }
 
 function renderCookIngredients(){
@@ -258,6 +308,7 @@ function renderCookStep(){
     $("start-step-timer").dataset.seconds=timer.seconds;
     $("start-step-timer").dataset.label=timer.label;
   }
+  saveCookSession();
 }
 
 function detectTimerFromStep(text){
@@ -285,11 +336,9 @@ $("toggle-cook-ingredients").onclick=()=>{
   panel.hidden=!panel.hidden;
 };
 $("cook-mode-exit").onclick=async()=>{
-  cookSession=null;
-  if($("cook-mode-dialog").open)$("cook-mode-dialog").close();
+  $("cook-mode-dialog").close();
   await releaseCookWakeLock();
-  setPage("today");
-  await refreshSmartHome();
+  renderResumeCooking();
 };
 
 async function requestCookWakeLock(){
@@ -664,7 +713,7 @@ function renderHomeReadiness(today){
 $("cook-tonight-button").onclick=()=>{
   const id=$("cook-tonight-button").dataset.recipeId;
   const todayEntry=homeDateEntry(homeCurrentDays,new Date());
-  if(id)startCookMode(id,todayEntry?.planned_servings||null);
+  if(id)startCookMode(id,todayEntry?.planned_servings||null,false);
 };
 
 function roundScaledQuantity(quantity,unit,ingredientName=""){
