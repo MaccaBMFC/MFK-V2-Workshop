@@ -182,8 +182,8 @@
         </div>
 
         <div class="settings-list">
-          <button class="settings-item">
-            <span>📝</span><span><strong>Recipe Manager</strong><small>Owners, structured ingredients and favourites</small></span><b>Coming next</b>
+          <button id="open-recipe-manager" class="settings-item">
+            <span>📝</span><span><strong>Recipe Manager</strong><small>Owners, structured ingredients and favourites</small></span><b>Open ›</b>
           </button>
           <button class="settings-item">
             <span>🏷️</span><span><strong>Categories</strong><small>Add and manage recipe categories</small></span><b id="settings-category-count">0</b>
@@ -230,6 +230,170 @@
     <button class="dialog-close" data-close-dialog="recipe-dialog">×</button>
     <article id="recipe-detail"></article>
   </dialog>
+
+
+  <dialog id="recipe-manager-dialog" class="manager-dialog">
+    <button class="dialog-close" data-close-dialog="recipe-manager-dialog">×</button>
+    <div class="manager-shell">
+      <header class="manager-header">
+        <div>
+          <p class="eyebrow">Settings</p>
+          <h2>Recipe Manager</h2>
+          <p class="muted">Create recipes and gradually convert classic ingredient lines into structured V2 data.</p>
+        </div>
+        <button id="manager-new-recipe" class="button primary">＋ New recipe</button>
+      </header>
+
+      <div class="manager-grid">
+        <aside class="manager-library">
+          <div class="manager-tools">
+            <input id="manager-search" type="search" placeholder="Search recipes…">
+            <select id="manager-filter">
+              <option value="all">All recipes</option>
+              <option value="structured">Structured</option>
+              <option value="legacy">Needs conversion</option>
+            </select>
+          </div>
+          <div id="manager-recipe-list" class="manager-recipe-list"></div>
+        </aside>
+
+        <section class="manager-editor">
+          <div id="manager-empty" class="manager-empty">
+            <span>🍞</span>
+            <h3>Select a recipe</h3>
+            <p>Choose an existing recipe or create a new one.</p>
+          </div>
+
+          <form id="manager-form" hidden>
+            <input id="manager-recipe-id" type="hidden">
+
+            <div class="manager-editor-heading">
+              <div>
+                <p id="manager-mode" class="eyebrow">New recipe</p>
+                <h3 id="manager-editor-title">Recipe details</h3>
+              </div>
+              <span id="manager-format" class="format-pill">Structured</span>
+            </div>
+
+            <section class="manager-section">
+              <h4>Recipe</h4>
+              <div class="manager-form-grid">
+                <label class="manager-span-2">Recipe name
+                  <input id="manager-title" maxlength="100" required>
+                </label>
+                <label>Emoji
+                  <input id="manager-emoji" maxlength="8" placeholder="🍝">
+                </label>
+                <label>Category
+                  <select id="manager-category" required></select>
+                </label>
+                <label>Owner
+                  <select id="manager-owner"></select>
+                </label>
+                <label>Base servings
+                  <input id="manager-servings" type="number" min="0.25" step="0.25" placeholder="6">
+                </label>
+                <label>Prep time
+                  <input id="manager-prep" placeholder="20 minutes">
+                </label>
+                <label>Cook time
+                  <input id="manager-cook" placeholder="8 hours">
+                </label>
+                <label class="manager-span-2">Story
+                  <textarea id="manager-story" rows="3"></textarea>
+                </label>
+                <label>Recipe origin
+                  <select id="manager-source-type">
+                    <option value="">Not set</option>
+                    <option value="family_original">Family Original</option>
+                    <option value="family_adaptation">Family Adaptation</option>
+                    <option value="classic">Classic Recipe</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>Inspired by
+                  <input id="manager-source-name" placeholder="HelloFresh, Panasonic, Mum…">
+                </label>
+              </div>
+            </section>
+
+            <section class="manager-section">
+              <div class="manager-section-heading">
+                <div>
+                  <h4>Structured ingredients</h4>
+                  <p class="muted">Quantity, unit, ingredient and shopping destination.</p>
+                </div>
+                <button id="manager-import-legacy" class="button secondary" type="button" hidden>↳ Import old lines</button>
+              </div>
+
+              <div class="manager-ingredient-head">
+                <span>Qty</span><span>Unit</span><span>Ingredient</span><span>Shop</span><span></span>
+              </div>
+              <div id="manager-ingredient-rows" class="manager-ingredient-rows"></div>
+              <button id="manager-add-ingredient" class="button add-row" type="button">＋ Add ingredient</button>
+              <datalist id="manager-ingredient-suggestions"></datalist>
+
+              <details id="manager-legacy-preview" class="legacy-preview" hidden>
+                <summary>View original ingredient lines</summary>
+                <ul id="manager-legacy-lines"></ul>
+              </details>
+            </section>
+
+            <section class="manager-section">
+              <h4>Method and tips</h4>
+              <div class="manager-form-grid">
+                <label class="manager-span-2">Method
+                  <textarea id="manager-method" rows="9" required placeholder="One step per line"></textarea>
+                </label>
+                <label class="manager-span-2">Macca's tips
+                  <textarea id="manager-tips" rows="5" placeholder="One tip per line"></textarea>
+                </label>
+              </div>
+            </section>
+
+            <section class="manager-section">
+              <h4>Who loves it?</h4>
+              <div id="manager-favourites" class="manager-favourites"></div>
+            </section>
+
+            <div class="manager-save-bar">
+              <p id="manager-save-message" class="form-message"></p>
+              <div>
+                <button id="manager-cancel" class="button secondary" type="button">Cancel</button>
+                <button class="button primary" type="submit">💾 Save recipe</button>
+              </div>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <template id="manager-ingredient-template">
+    <div class="manager-ingredient-row">
+      <label><span>Quantity</span><input class="mi-qty" inputmode="decimal" placeholder="500"></label>
+      <label><span>Unit</span>
+        <select class="mi-unit">
+          <option value=""></option>
+          <option>g</option><option>kg</option><option>ml</option><option>L</option>
+          <option>tsp</option><option>tbsp</option><option>cup</option><option>cups</option>
+          <option>clove</option><option>cloves</option><option>tin</option><option>tins</option>
+          <option>packet</option><option>packets</option><option>bunch</option>
+          <option>slice</option><option>slices</option>
+        </select>
+      </label>
+      <label><span>Ingredient</span>
+        <input class="mi-name" list="manager-ingredient-suggestions" required placeholder="Beef mince">
+      </label>
+      <label><span>Shop</span>
+        <select class="mi-shop">
+          <option value="woolworths">🛒 Woolworths</option>
+          <option value="fruit_veg">🥕 Fruit & Veg</option>
+        </select>
+      </label>
+      <button class="mi-remove" type="button" aria-label="Remove ingredient">×</button>
+    </div>
+  </template>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
