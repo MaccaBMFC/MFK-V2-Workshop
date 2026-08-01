@@ -558,10 +558,7 @@ function plannerRenderRecipes(){
         .map(f=>f.recipe_id));
 
   const list=recipes.filter(r=>{
-    const searchMatch=!q||[
-      r.title,r.category,r.story,
-      ...(Array.isArray(r.ingredients)?r.ingredients:[])
-    ].join(" ").toLowerCase().includes(q);
+    const searchMatch=  !q || String(r.title || "").toLowerCase().includes(q);
 
     const categoryMatch=plannerPickerCategory==="All"||r.category===plannerPickerCategory;
     const memberMatch=plannerPickerMember==="All"||favouriteRecipeIds.has(r.id);
