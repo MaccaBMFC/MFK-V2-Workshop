@@ -521,3 +521,7 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .settings-account-actions{display:grid;grid-template-columns:1fr}
   .settings-account-actions .button{width:100%}
 }
+
+
+/* ===== MFK v1.3.0 RC4 ===== */
+.settings-account-card[hidden]{display:none!important}

@@ -16,12 +16,96 @@ const db=configured?window.supabase.createClient(
   }
 ):null;
 const $=id=>document.getElementById(id);
+
+function ensurePantryDestinationOption(){
+  const template=$("manager-ingredient-template");
+  const templateSelect=template?.content?.querySelector?.("select.mi-shop");
+  if(templateSelect&&!templateSelect.querySelector('option[value="pantry"]')){
+    const option=document.createElement("option");
+    option.value="pantry";
+    option.textContent="🥫 Pantry / Staples";
+    templateSelect.appendChild(option);
+  }
+
+  document.querySelectorAll("select.mi-shop").forEach(select=>{
+    if(!select.querySelector('option[value="pantry"]')){
+      const option=document.createElement("option");
+      option.value="pantry";
+      option.textContent="🥫 Pantry / Staples";
+      select.appendChild(option);
+    }
+  });
+}
+
+function ensureAccountSyncPanel(){
+  if($("settings-account-email"))return;
+
+  const settingsList=document.querySelector("#page-settings .settings-list");
+  if(!settingsList)return;
+
+  const card=document.createElement("section");
+  card.className="settings-account-card";
+  card.innerHTML=`
+    <div class="settings-account-main">
+      <span class="settings-account-icon">👤</span>
+      <div>
+        <p class="eyebrow">Account & Sync</p>
+        <h2 id="settings-account-name">MFK account</h2>
+        <p id="settings-account-email" class="muted">Not signed in</p>
+      </div>
+    </div>
+    <div class="settings-account-status">
+      <span id="settings-sync-dot" class="sync-dot"></span>
+      <strong id="settings-sync-status">Checking session…</strong>
+    </div>
+    <div class="settings-account-actions">
+      <button id="settings-sign-in-button" class="button primary" type="button">Sign in</button>
+      <button id="settings-sign-out-button" class="button secondary" type="button" hidden>Sign out</button>
+      <button id="settings-clear-cache-button" class="button secondary" type="button">Refresh app cache</button>
+    </div>
+    <p class="settings-account-note">MFK keeps you signed in securely on this device until you choose Sign out.</p>
+  `;
+  settingsList.parentElement.insertBefore(card,settingsList);
+
+  $("settings-sign-in-button").onclick=showLogin;
+  $("settings-sign-out-button").onclick=signOutOfMFK;
+  $("settings-clear-cache-button").onclick=refreshMFKCache;
+}
+
+async function refreshMFKCache(){
+  if($("settings-sync-status"))$("settings-sync-status").textContent="Refreshing app cache…";
+
+  if("serviceWorker" in navigator){
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(async registration=>{
+      await registration.update();
+      registration.waiting?.postMessage?.({type:"SKIP_WAITING"});
+    }));
+  }
+
+  if("caches" in window){
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>!key.includes("rc4")).map(key=>caches.delete(key)));
+  }
+
+  setTimeout(()=>location.reload(),400);
+}
+
+function hydrateRC4Interface(){
+  ensurePantryDestinationOption();
+  ensureAccountSyncPanel();
+}
+
 let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[],cookSession=null,cookWakeLock=null,cookTimerInterval=null,cookTimerEnd=null,cookSelectedRating=0,cookLogs=[],activeCookSession=null,cookSessionSaveTimer=null;
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 
 function setPage(page){
+  if(page==="settings"){
+    hydrateRC4Interface();
+    applySession();
+  }
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.dataset.pageName===page));
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   window.scrollTo({top:0,behavior:"smooth"});
@@ -34,17 +118,7 @@ $("sign-in-button").onclick=showLogin;
 
 $("settings-sign-in-button").onclick=showLogin;
 $("settings-sign-out-button").onclick=signOutOfMFK;
-$("settings-clear-cache-button").onclick=async()=>{
-  $("settings-sync-status").textContent="Refreshing app cache…";
-  if("serviceWorker" in navigator){
-    const registrations=await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map(r=>r.update()));
-  }
-  $("settings-sync-status").textContent=currentUser
-    ?"Cache refreshed · Cloud sync connected"
-    :"Cache refreshed · Sign in to sync";
-  setTimeout(()=>location.reload(),350);
-};
+$("settings-clear-cache-button").onclick=refreshMFKCache;
 
 async function signOutOfMFK(){
   if(!db)return;
@@ -66,6 +140,7 @@ $("login-form").addEventListener("submit",async e=>{
   currentUser=data.user;$("login-message").textContent="";$("login-dialog").close();applySession();await loadPrivateData();await plannerOpenWeek(plannerWeekStart||new Date());
 });
 function applySession(){
+  ensureAccountSyncPanel();
   const signedIn=!!currentUser;
   $("sign-in-button").hidden=signedIn;
   $("sign-out-button").hidden=!signedIn;
@@ -83,6 +158,7 @@ function applySession(){
 }
 
 async function init(){
+  hydrateRC4Interface();
   const requested=location.hash.replace("#","")||"today";
   if(["today","planner","recipes","shopping","settings"].includes(requested))setPage(requested);
   if(!db){
@@ -1138,6 +1214,7 @@ function managerOpenRecipe(id){
 }
 
 function managerAddIngredientRow(data={}){
+  ensurePantryDestinationOption();
   const fragment=$("manager-ingredient-template").content.cloneNode(true);
   const row=fragment.querySelector(".manager-ingredient-row");
   row.querySelector(".mi-qty").value=data.quantity??data.display_quantity??"";

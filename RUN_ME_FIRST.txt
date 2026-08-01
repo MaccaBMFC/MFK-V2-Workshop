@@ -1,45 +1,21 @@
-MFK v1.3.0 RC3 — COOKING & SHOPPING INTELLIGENCE
+MFK v1.3.0 RC4
 
-NO NEW SUPABASE SQL
+NO NEW SQL REQUIRED.
 
-RC3 uses the active_cook_sessions migration already installed for RC1.
+1. Stay on the development branch.
+2. Upload the complete extracted RC4 package.
+3. Keep your existing config.js.
+4. Commit:
+   MFK v1.3.0 RC4 Pantry and mobile Settings fixes
 
-UPLOAD
+PHONE TEST
+- Fully close MFK.
+- Reopen it.
+- Open Settings.
+- Account & Sync should appear.
 
-1. Stay on the GitHub `development` branch.
-2. Extract this package.
-3. Upload the complete contents to the repository root.
-4. Keep your existing working `config.js`.
-5. Commit:
-
-   MFK v1.3.0 RC3 Cooking and Shopping Intelligence
-
-PAGES TEST
-
-Keep GitHub Pages temporarily publishing from `development` while testing RC3.
-Do not merge into `main` yet.
-
-IMPORTANT: REGENERATE SHOPPING
-
-Existing generated rows retain their old quantities.
-After RC3 deploys:
-
-1. Open Meal Planner.
-2. Save the week.
-3. Press Generate Shopping Lists again.
-
-This rebuilds the generated rows using Smart Shopping rules.
-
-PERSISTENT LOGIN TEST
-
-1. Sign in once.
-2. Fully close MFK on your phone.
-3. Reopen it.
-4. Confirm MFK opens signed in.
-5. Open Settings and confirm Cloud sync connected.
-
-CACHE
-
-After deployment:
-- Desktop: Ctrl + Shift + R
-- Installed app: fully close and reopen it
+PANTRY TEST
+- Open Recipe Manager.
+- Edit a structured ingredient.
+- Confirm Pantry / Staples is available under Shop.
+- Save and reopen the recipe.
