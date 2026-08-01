@@ -1,0 +1,47 @@
+MFK V2 — SPRINT 1 / TASK 1
+DATABASE FOUNDATION — RUN GUIDE
+
+1. Open your existing MFK Supabase project.
+2. Open SQL Editor.
+3. Click New query.
+4. Open MFK_V2_Task1_Database_Foundation.sql.
+5. Copy the whole file and paste it into Supabase.
+6. Click Run.
+7. If Supabase shows its query-risk warning:
+   - review it
+   - choose to run WITHOUT its automatic RLS modification
+   - the script enables and configures RLS itself
+8. Wait for "Success. No rows returned."
+
+CHECK THE RESULT
+
+Open Table Editor. You should see these new tables:
+
+- family_members
+- ingredients
+- recipe_ingredients
+- recipe_favourites
+- recipe_cook_logs
+- meal_plans
+- meal_plan_days
+- shopping_lists
+- shopping_items
+
+You should also see:
+
+- five starter family members
+- two shopping lists: Woolworths and Fruit & Veg
+- new V2 columns on the existing recipes table
+
+IMPORTANT
+
+- Do not delete the existing recipes or categories tables.
+- Do not upload any website files yet.
+- This task creates the database foundation only.
+- V1.3 will continue working because its existing fields are untouched.
+
+NEXT TASK
+
+Sprint 1 / Task 2:
+Build the V2 Recipe Manager with structured ingredient rows and gradual
+conversion of existing recipes.
