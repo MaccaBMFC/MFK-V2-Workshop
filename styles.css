@@ -450,3 +450,34 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .analytics-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
   .analytics-metrics{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* =========================================================
+   MFK v1.3.0 RC1 — COOKING INTELLIGENCE
+========================================================= */
+.cook-overlay{
+  position:absolute;inset:0;z-index:20;background:rgba(20,35,30,.72);
+  backdrop-filter:blur(6px);display:grid;place-items:center;padding:18px;overflow:auto
+}
+.cook-overlay[hidden]{display:none}
+.cook-overlay-card{
+  width:min(560px,100%);background:var(--paper);border-radius:24px;padding:28px;
+  text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.3)
+}
+.cook-overlay-card h2{font-size:2.15rem;margin:5px 0}
+.cook-overlay-actions{display:grid;gap:9px;margin:22px 0 14px}
+.cook-choice{
+  width:100%;border:1px solid var(--line);background:white;border-radius:16px;
+  padding:14px;display:grid;grid-template-columns:42px 1fr;gap:11px;
+  align-items:center;text-align:left;color:var(--ink);cursor:pointer
+}
+.cook-choice:hover{background:var(--sage)}
+.cook-choice>span:first-child{font-size:1.55rem;text-align:center}
+.cook-choice strong,.cook-choice small{display:block}.cook-choice small{color:var(--muted);margin-top:3px}
+.cook-choice.danger{border-color:#e8c5c5;background:#fff7f7}.cook-choice.danger:hover{background:#ffecec}
+.cook-overlay-card>.button{width:100%}
+.finish-card .rating-picker{margin:18px 0}
+.active-session-stale{background:linear-gradient(135deg,#fff4d9,#ead3a1)}
+.dinner-complete-card{background:linear-gradient(135deg,#2d5a48,#3c745d)!important}
+.session-sync-state{font-size:.72rem;color:rgba(255,255,255,.7)}
+@media(max-width:650px){.cook-overlay{padding:0}.cook-overlay-card{min-height:100%;border-radius:0;padding:30px 18px;display:grid;align-content:center}}

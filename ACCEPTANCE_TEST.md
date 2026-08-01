@@ -1,31 +1,33 @@
-# MFK V2 Application Shell — Acceptance Test
+# Task 3 Acceptance Test
 
-## Deployment
-- [ ] index.html is visible at the repository root.
-- [ ] GitHub Pages loads without a 404.
-- [ ] Existing config.js connects to Supabase.
+## Manager access
+- [ ] User signs in.
+- [ ] Settings → Recipe Manager opens.
+- [ ] Existing recipes appear.
+- [ ] All / Structured / Needs conversion filters work.
 
-## Navigation
-- [ ] Today, Planner, Recipes, Shopping and Settings all open.
-- [ ] Mobile bottom navigation remains visible.
-- [ ] MFK brand returns to Today.
+## Conversion
+- [ ] Classic recipe shows original ingredient lines.
+- [ ] Import old lines creates structured rows.
+- [ ] Rows can be corrected and removed.
+- [ ] New ingredient rows can be added.
+- [ ] Shop destination supports Woolworths and Fruit & Veg.
+- [ ] Save changes status to Structured.
+- [ ] V1 recipe still retains its original ingredient list.
 
-## Recipes
-- [ ] Existing recipes load.
-- [ ] Search works.
-- [ ] Category filters work.
-- [ ] Recipe detail opens.
+## Recipe details
+- [ ] Owner saves.
+- [ ] Base servings saves.
+- [ ] Source and inspiration save.
+- [ ] Family favourites save.
+- [ ] Method and tips save.
 
-## Authentication
-- [ ] Existing cookbook user signs in.
-- [ ] Sign-out works.
+## New recipe
+- [ ] New recipe can be created.
+- [ ] New master ingredients are created automatically.
+- [ ] Existing ingredient names appear as suggestions.
 
-## Shopping
-- [ ] Woolworths and Fruit & Veg tabs work.
-- [ ] Manual item supports quantity, unit and item name.
-- [ ] New item saves after refresh.
-- [ ] Item can be checked.
-- [ ] Today shopping counts update.
-
-## Safety
-- [ ] Live V1.3 cookbook still works unchanged.
+## Mobile
+- [ ] Manager fills the phone screen.
+- [ ] Ingredient fields stack cleanly.
+- [ ] Save controls remain reachable.

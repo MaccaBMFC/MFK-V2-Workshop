@@ -1,63 +1,29 @@
-MFK — MACCA'S FAMILY KITCHEN
-V2.0 / SPRINT 1 / TASK 2
-APPLICATION SHELL
+MFK v1.3.0 RC1 — COOKING INTELLIGENCE
 
-THIS IS THE REAL V2 APPLICATION
+THIS IS A DEVELOPMENT RELEASE CANDIDATE.
+Do not change GitHub Pages away from main.
 
-It includes the permanent five-screen structure:
+1. SUPABASE
+Run MFK_V1.3.0_RC1_Cooking_Intelligence.sql
+Choose Run without automatic RLS changes.
 
-- Today
-- Meal Planner
-- Recipes
-- Shopping
-- Settings
+2. GITHUB DEVELOPMENT BRANCH
+Upload the COMPLETE contents of this package to the root of development.
+Keep your working config.js (the package contains config.example.js only).
+Commit message: MFK v1.3.0 RC1 Cooking Intelligence
 
-CURRENT WORKING FEATURES
+3. TESTING
+Because GitHub Pages remains on main, test development using one of:
+- GitHub Codespaces / local server, or
+- temporarily configure a separate Pages repository for RC testing.
+Do not merge development into main until RELEASE_CHECKLIST.md passes.
 
-- Existing Supabase login
-- Existing recipes and categories displayed in V2
-- Recipe search and category filters
-- Existing recipe detail view
-- Two real Supabase shopping lists
-- Manual shopping items with quantity and unit
-- Tick-off shopping items
-- Shopping counts on Today
-- Mobile bottom navigation
-- Desktop/mobile responsive layout
-
-PLACEHOLDERS READY FOR LATER TASKS
-
-- Tonight's planned dinner
-- This week's meal preview
-- Full Meal Planner engine
-- Structured Recipe Manager inside Settings
-- Generate shopping from meal plan
-
-SETUP
-
-1. Use your existing MFK-V2-Workshop repository, or create a new MFK-V2 repository.
-2. Extract this ZIP.
-3. Copy the working config.js from your live V1 cookbook.
-   Do not upload config.example.js as config.js unless you have inserted the real values.
-4. Upload these files at the repository root:
-   - index.html
-   - styles.css
-   - app.js
-   - config.js
-   - manifest.webmanifest
-   - sw.js
-   - icon-192.png
-   - icon-512.png
-5. GitHub Pages:
-   Settings → Pages → Deploy from branch → main → /(root)
-6. Wait for deployment and open the site.
-7. Sign in and test the five navigation tabs.
-
-IMPORTANT
-
-This build uses the database foundation already installed in Sprint 1 Task 1.
-No new SQL is required.
-
-SAFE TO TEST
-
-Your V1.3 cookbook remains separate and unchanged.
+4. FIRST COOK TEST
+- Start tonight's recipe.
+- Go to Step 2.
+- X → Resume later.
+- Return and press Resume.
+- X → Keep Cooking.
+- X → Stop Cooking; confirm Resume disappears.
+- Start again and Finish Cooking; save a rating/note.
+- Confirm Today says Dinner complete and Analytics updates.
