@@ -1,0 +1,51 @@
+
+:root{
+  --forest:#173d32;--forest2:#255343;--sage:#dfe8df;--cream:#f5efe4;
+  --paper:#fffdf8;--ink:#252824;--muted:#747a73;--gold:#d4a35c;
+  --rust:#b7663f;--line:#ded8cc;--danger:#9b3232;
+  --shadow:0 18px 55px rgba(31,51,42,.12)
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;padding-bottom:84px}
+button,input,select,textarea{font:inherit}
+button{touch-action:manipulation}
+h1,h2,h3{font-family:Georgia,serif}
+.topbar{position:sticky;top:0;z-index:40;background:rgba(23,61,50,.97);color:white;border-bottom:1px solid rgba(255,255,255,.09);backdrop-filter:blur(12px)}
+.topbar-inner{max-width:1220px;margin:auto;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+.brand-button{border:0;background:transparent;color:white;display:flex;align-items:center;gap:11px;padding:0;cursor:pointer;text-align:left}
+.brand-mark{display:grid;place-items:center;width:43px;height:43px;border-radius:50%;background:var(--gold);color:var(--forest);font:800 1.4rem Georgia,serif}
+.brand-copy strong,.brand-copy small{display:block;line-height:1.05}.brand-copy small{opacity:.66;margin-top:4px}
+.topbar-actions{display:flex;align-items:center;gap:9px}.user-label{font-size:.8rem;opacity:.7}.header-button{border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);color:white;border-radius:999px;padding:9px 13px;cursor:pointer}
+.page{display:none;min-height:calc(100dvh - 70px)}.page.active{display:block}
+.page-shell{max-width:1180px;margin:auto;padding:42px 20px 70px}.page-shell.narrow{max-width:850px}
+.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:.7rem;font-weight:850;color:var(--rust);margin:0 0 7px}.eyebrow.light{color:#f0c98b}
+h1{font-size:clamp(2.7rem,6vw,5.4rem);line-height:.95;letter-spacing:-.04em;margin:0}.lede{font-size:1.08rem;color:var(--muted);max-width:700px}
+.welcome-row,.page-heading{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:30px}.page-heading.recipes-heading{align-items:center}
+.button{border:0;border-radius:13px;padding:12px 17px;font-weight:800;cursor:pointer}.button.primary{background:var(--forest);color:white}.button.large{padding:15px 20px}.button.cream{background:var(--paper);color:var(--forest)}.button.gold{background:var(--gold);color:var(--forest)}
+.button-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.tonight-card{background:linear-gradient(135deg,var(--forest),#0f2f27);color:white;border-radius:28px;padding:34px;display:grid;grid-template-columns:160px 1fr;gap:28px;align-items:center;box-shadow:var(--shadow)}
+.tonight-visual{display:grid;place-items:center;min-height:150px;border-radius:24px;background:rgba(255,255,255,.08);font-size:5rem}.tonight-card h2{font-size:clamp(2.2rem,5vw,4rem);margin:4px 0}.tonight-card p{color:rgba(255,255,255,.72)}.tonight-meta{display:flex;gap:10px;flex-wrap:wrap}.tonight-meta span{background:rgba(255,255,255,.1);border-radius:999px;padding:7px 10px;font-size:.82rem}
+.dashboard-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px;margin-top:22px}.panel{background:var(--paper);border:1px solid var(--line);border-radius:23px;padding:24px;box-shadow:0 8px 28px rgba(31,51,42,.06)}
+.panel-heading{display:flex;justify-content:space-between;align-items:end;gap:18px}.panel-heading h2{font-size:2rem;margin:0}.text-button{border:0;background:transparent;color:var(--forest2);font-weight:800;cursor:pointer}
+.week-preview{margin-top:18px}.shopping-summary{display:grid;gap:10px;margin-top:18px}.summary-card{width:100%;border:1px solid var(--line);background:white;border-radius:17px;padding:14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer}.summary-icon{font-size:1.7rem}.summary-card strong,.summary-card small{display:block}.summary-card small{color:var(--muted);margin-top:2px}
+.empty-state{min-height:260px;display:grid;place-items:center;align-content:center;text-align:center;color:var(--muted)}.empty-state.compact{min-height:160px}.empty-state span{font-size:3rem}.empty-state h2{color:var(--ink);margin:10px 0 0}
+.placeholder-feature{background:var(--paper);border:1px solid var(--line);border-radius:25px;padding:42px;display:flex;align-items:center;gap:24px}.placeholder-icon{font-size:4rem}.placeholder-feature h2{font-size:2rem;margin:0}
+.search-box{min-width:min(430px,100%);display:flex;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:0 14px;font-size:1.5rem}.search-box input{border:0;outline:0;background:transparent;width:100%;padding:14px 10px;color:var(--ink)}
+.filter-bar{display:flex;gap:8px;overflow:auto;padding:3px 0 20px;scrollbar-width:none}.filter-bar::-webkit-scrollbar{display:none}.filter{white-space:nowrap;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:10px 15px;cursor:pointer}.filter.active{background:var(--forest);color:white;border-color:var(--forest)}
+.status{background:#fff3cf;border:1px solid #ead69a;padding:12px 14px;border-radius:13px}.recipe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.recipe-card{background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden;cursor:pointer;box-shadow:0 8px 24px rgba(44,55,48,.05);transition:.18s}.recipe-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}.card-visual{height:155px;display:grid;place-items:center;font-size:4rem;background:linear-gradient(135deg,#ebe3d4,#f8f3e9);position:relative}.category-pill{position:absolute;top:12px;left:12px;background:rgba(255,253,248,.92);border-radius:999px;padding:6px 9px;font-size:.68rem;font-weight:850;text-transform:uppercase;letter-spacing:.07em;color:var(--forest)}.card-body{padding:17px}.card-body h3{font-size:1.38rem;margin:0 0 7px}.card-story{color:var(--muted);font-size:.9rem;min-height:2.7em}.meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:.8rem;margin-top:12px}
+.shopping-tabs{display:flex;gap:8px;margin-bottom:18px}.shopping-tab{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:11px 16px;font-weight:800;cursor:pointer}.shopping-tab.active{background:var(--forest);color:white;border-color:var(--forest)}
+.shopping-workspace{background:var(--paper);border:1px solid var(--line);border-radius:23px;padding:22px}.quick-add{display:grid;grid-template-columns:90px 120px 1fr auto;gap:9px}.quick-add input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;outline:none}.shopping-list-content{margin-top:18px}
+.settings-list{display:grid;gap:10px}.settings-item{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:17px;padding:16px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;text-align:left;color:var(--ink);cursor:pointer}.settings-item>span:first-child{font-size:1.6rem}.settings-item strong,.settings-item small{display:block}.settings-item small{color:var(--muted);margin-top:3px}.settings-item b{color:var(--muted);font-size:.8rem}
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(255,253,248,.97);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:7px max(8px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom));backdrop-filter:blur(14px)}.nav-item{border:0;background:transparent;color:var(--muted);padding:5px;display:grid;place-items:center;gap:2px;cursor:pointer}.nav-item span{font-size:1.25rem}.nav-item small{font-size:.68rem}.nav-item.active{color:var(--forest);font-weight:850}
+dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,0,0,.35);border-radius:24px;max-height:calc(100dvh - 24px)}dialog::backdrop{background:rgba(11,26,21,.72);backdrop-filter:blur(3px)}.dialog-close{position:sticky;float:right;top:11px;right:11px;margin:11px;width:42px;height:42px;border:0;border-radius:50%;background:var(--forest);color:white;font-size:1.4rem;z-index:3;cursor:pointer}.dialog-body{padding:28px}.login-dialog-body{width:min(420px,calc(100vw - 24px));text-align:center}.dialog-icon{font-size:3rem}.dialog-body h2{font-size:2.2rem;margin:5px 0}.form-stack{display:grid;gap:13px;text-align:left;margin-top:20px}.form-stack label{font-weight:750}.form-stack input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px}.form-message{min-height:1.4em;color:var(--danger)}
+.recipe-dialog{width:min(800px,calc(100vw - 24px))}.recipe-hero{padding:46px 24px 26px;text-align:center;background:linear-gradient(135deg,#e9dfcf,#f8f4ec)}.recipe-hero .detail-emoji{font-size:5rem}.recipe-hero h2{font-size:clamp(2.2rem,6vw,3.8rem);line-height:1;margin:8px 0}.recipe-body{padding:24px 28px 40px}.info-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:20px 0}.info-box{background:var(--cream);border-radius:15px;padding:13px;text-align:center;color:var(--ink)}.info-box strong{display:block;color:var(--forest)}.recipe-section{margin-top:24px}.recipe-section h3{font-size:1.4rem;margin-bottom:8px}.recipe-section li{margin:8px 0}.tip-box{background:var(--sage);border-radius:17px;padding:14px 17px}
+@media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}.recipe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tonight-card{grid-template-columns:120px 1fr}}
+@media(max-width:650px){
+  .topbar-inner{padding:10px 13px}.brand-copy small,.user-label{display:none}.page-shell{padding:28px 14px 45px}
+  .welcome-row,.page-heading{align-items:flex-start;flex-direction:column}.welcome-row .button,.page-heading>.button{width:100%}
+  h1{font-size:3rem}.tonight-card{grid-template-columns:1fr;padding:23px}.tonight-visual{min-height:105px}.tonight-card h2{font-size:2.35rem}
+  .recipe-grid{grid-template-columns:1fr}.search-box{min-width:100%}.placeholder-feature{align-items:flex-start;padding:25px;flex-direction:column}
+  .quick-add{grid-template-columns:1fr 1fr}.quick-add input:nth-child(3),.quick-add .button{grid-column:1/-1}
+  .recipe-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.recipe-body{padding:20px 18px 40px}.info-strip{font-size:.82rem}
+}

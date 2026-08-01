@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#173d32">
+  <meta name="description" content="MFK — Macca's Family Kitchen">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>MFK — Macca's Family Kitchen</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <button class="brand-button" data-page="today" aria-label="Go to Today">
+        <span class="brand-mark">M</span>
+        <span class="brand-copy">
+          <strong>MFK</strong>
+          <small>Macca's Family Kitchen</small>
+        </span>
+      </button>
+
+      <div class="topbar-actions">
+        <span id="user-label" class="user-label"></span>
+        <button id="sign-in-button" class="header-button">Sign in</button>
+        <button id="sign-out-button" class="header-button" hidden>Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="page-today" class="page active" data-page-name="today">
+      <div class="page-shell">
+        <div class="welcome-row">
+          <div>
+            <p class="eyebrow">Today</p>
+            <h1>Good morning, Macca.</h1>
+            <p class="lede">Everything you need for tonight, this week, and the next shop.</p>
+          </div>
+          <button id="plan-week-button" class="button primary large">✨ Plan My Week</button>
+        </div>
+
+        <section class="tonight-card">
+          <div class="tonight-visual">🍽️</div>
+          <div class="tonight-copy">
+            <p class="eyebrow light">Tonight's dinner</p>
+            <h2 id="tonight-title">Nothing planned yet</h2>
+            <p id="tonight-story">Your planned meal will appear here automatically.</p>
+            <div id="tonight-meta" class="tonight-meta" hidden></div>
+            <div class="button-row">
+              <button id="choose-tonight-button" class="button cream">Choose a meal</button>
+              <button id="cook-tonight-button" class="button gold" hidden>👨‍🍳 Cook Tonight</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">This week</p>
+                <h2>Your meal plan</h2>
+              </div>
+              <button class="text-button" data-page="planner">Open planner →</button>
+            </div>
+            <div id="week-preview" class="week-preview">
+              <div class="empty-state compact">
+                <span>📅</span>
+                <p>Your planned meals will appear here.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Shopping</p>
+                <h2>Your lists</h2>
+              </div>
+              <button class="text-button" data-page="shopping">Open lists →</button>
+            </div>
+            <div class="shopping-summary">
+              <button class="summary-card" data-list="woolworths">
+                <span class="summary-icon">🛒</span>
+                <span><strong>Woolworths</strong><small><b id="woolies-count">0</b> items</small></span>
+              </button>
+              <button class="summary-card" data-list="fruit_veg">
+                <span class="summary-icon">🥕</span>
+                <span><strong>Fruit & Veg</strong><small><b id="fruit-count">0</b> items</small></span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-planner" class="page" data-page-name="planner">
+      <div class="page-shell">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Meal Planner</p>
+            <h1>Plan your week</h1>
+            <p class="lede">Friday or Saturday start. Recipes, leftovers, takeaway, eating out, free night, or custom meals.</p>
+          </div>
+          <button class="button primary">✨ Plan My Week</button>
+        </div>
+
+        <section class="placeholder-feature">
+          <div class="placeholder-icon">📅</div>
+          <div>
+            <h2>Meal Planner engine coming next</h2>
+            <p>The shell is ready. The next task will turn this area into the full-screen recipe picker and weekly day cards.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="page-recipes" class="page" data-page-name="recipes">
+      <div class="page-shell">
+        <div class="page-heading recipes-heading">
+          <div>
+            <p class="eyebrow">Recipes</p>
+            <h1>Your family cookbook</h1>
+            <p class="lede">The familiar recipe experience, now living inside MFK V2.</p>
+          </div>
+          <div class="search-box">
+            <span>⌕</span>
+            <input id="recipe-search" type="search" placeholder="Search recipes, ingredients or categories…">
+          </div>
+        </div>
+
+        <div id="category-filters" class="filter-bar"></div>
+        <p id="recipe-status" class="status" hidden></p>
+        <div id="recipe-grid" class="recipe-grid"></div>
+      </div>
+    </section>
+
+    <section id="page-shopping" class="page" data-page-name="shopping">
+      <div class="page-shell">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Shopping</p>
+            <h1>Two simple lists</h1>
+            <p class="lede">Manual items during the week. Generated ingredients after Plan My Week.</p>
+          </div>
+        </div>
+
+        <div class="shopping-tabs">
+          <button class="shopping-tab active" data-shopping-tab="woolworths">🛒 Woolworths</button>
+          <button class="shopping-tab" data-shopping-tab="fruit_veg">🥕 Fruit & Veg</button>
+        </div>
+
+        <section class="shopping-workspace">
+          <div class="quick-add">
+            <input id="shopping-qty" placeholder="Qty">
+            <input id="shopping-unit" placeholder="Unit">
+            <input id="shopping-name" placeholder="Add an item…">
+            <button id="add-shopping-item" class="button primary">Add</button>
+          </div>
+
+          <div id="shopping-list-content" class="shopping-list-content">
+            <div class="empty-state">
+              <span>🛒</span>
+              <h2>Your list is ready</h2>
+              <p>Sign in to load and add shopping items.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="page-settings" class="page" data-page-name="settings">
+      <div class="page-shell narrow">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h1>Manage MFK</h1>
+            <p class="lede">Everything administrative lives here, away from everyday cooking and planning.</p>
+          </div>
+        </div>
+
+        <div class="settings-list">
+          <button class="settings-item">
+            <span>📝</span><span><strong>Recipe Manager</strong><small>Owners, structured ingredients and favourites</small></span><b>Coming next</b>
+          </button>
+          <button class="settings-item">
+            <span>🏷️</span><span><strong>Categories</strong><small>Add and manage recipe categories</small></span><b id="settings-category-count">0</b>
+          </button>
+          <button class="settings-item">
+            <span>👨‍👩‍👧‍👦</span><span><strong>Family Members</strong><small>Owners and individual favourites</small></span><b id="settings-member-count">0</b>
+          </button>
+          <button class="settings-item">
+            <span>↗️</span><span><strong>Import & Export</strong><small>Back up your family kitchen data</small></span><b>Later</b>
+          </button>
+          <button class="settings-item">
+            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 2.0 · Foundation</small></span><b>›</b>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item active" data-page="today"><span>🏠</span><small>Today</small></button>
+    <button class="nav-item" data-page="planner"><span>📅</span><small>Planner</small></button>
+    <button class="nav-item" data-page="recipes"><span>📖</span><small>Recipes</small></button>
+    <button class="nav-item" data-page="shopping"><span>🛒</span><small>Shopping</small></button>
+    <button class="nav-item" data-page="settings"><span>⚙️</span><small>Settings</small></button>
+  </nav>
+
+  <dialog id="login-dialog">
+    <button class="dialog-close" data-close-dialog="login-dialog">×</button>
+    <div class="dialog-body login-dialog-body">
+      <div class="dialog-icon">🍞</div>
+      <p class="eyebrow">MFK account</p>
+      <h2>Sign in</h2>
+      <p>Use the same account as your current cookbook.</p>
+      <form id="login-form" class="form-stack">
+        <label>Email<input id="login-email" type="email" required autocomplete="email"></label>
+        <label>Password<input id="login-password" type="password" required autocomplete="current-password"></label>
+        <button class="button primary" type="submit">Sign in</button>
+        <p id="login-message" class="form-message"></p>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="recipe-dialog" class="recipe-dialog">
+    <button class="dialog-close" data-close-dialog="recipe-dialog">×</button>
+    <article id="recipe-detail"></article>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
