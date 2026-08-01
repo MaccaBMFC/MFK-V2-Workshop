@@ -214,7 +214,7 @@
             <input id="shopping-name" placeholder="Add an item…">
             <button id="add-shopping-item" class="button primary">Add</button>
           </div>
-          <p class="shopping-helper">Manual items stay safe when recipe lists are regenerated.</p>
+          <p class="shopping-helper">Manual items stay safe when lists regenerate. Recipe quantities are combined and formatted like a real shopping list.</p>
 
           <div id="shopping-list-content" class="shopping-list-content">
             <div class="empty-state">
@@ -237,6 +237,27 @@
           </div>
         </div>
 
+        <section class="settings-account-card">
+          <div class="settings-account-main">
+            <span class="settings-account-icon">👤</span>
+            <div>
+              <p class="eyebrow">Account & Sync</p>
+              <h2 id="settings-account-name">MFK account</h2>
+              <p id="settings-account-email" class="muted">Not signed in</p>
+            </div>
+          </div>
+          <div class="settings-account-status">
+            <span id="settings-sync-dot" class="sync-dot"></span>
+            <strong id="settings-sync-status">Checking session…</strong>
+          </div>
+          <div class="settings-account-actions">
+            <button id="settings-sign-in-button" class="button primary" type="button">Sign in</button>
+            <button id="settings-sign-out-button" class="button secondary" type="button" hidden>Sign out</button>
+            <button id="settings-clear-cache-button" class="button secondary" type="button">Refresh app cache</button>
+          </div>
+          <p class="settings-account-note">MFK keeps you signed in securely on this device until you choose Sign out.</p>
+        </section>
+
         <div class="settings-list">
           <button id="open-recipe-manager" class="settings-item">
             <span>📝</span><span><strong>Recipe Manager</strong><small>Owners, structured ingredients and favourites</small></span><b>Open ›</b>
@@ -254,7 +275,7 @@
             <span>📊</span><span><strong>Kitchen Analytics</strong><small>Cooking history, favourites and family trends</small></span><b>Open ›</b>
           </button>
           <button class="settings-item">
-            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 1.3.0 RC1 · Cooking Intelligence</small></span><b>›</b>
+            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 1.3.0 RC3 · Cooking & Shopping Intelligence</small></span><b>›</b>
           </button>
         </div>
       </div>

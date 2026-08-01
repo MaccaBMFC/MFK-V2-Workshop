@@ -1,46 +1,45 @@
-MFK v1.3.0 RC2 — COOKING INTELLIGENCE
+MFK v1.3.0 RC3 — COOKING & SHOPPING INTELLIGENCE
 
-WHY RC2 EXISTS
+NO NEW SUPABASE SQL
 
-RC1 correctly deleted the Supabase active cooking session after Finish or Stop.
-However, the Cooking Session card's CSS used `display: flex`, which overrode the
-browser's built-in styling for the HTML `hidden` attribute.
+RC3 uses the active_cook_sessions migration already installed for RC1.
 
-The card therefore remained visible even though there was no session left to resume.
+UPLOAD
 
-NO NEW SQL REQUIRED
+1. Stay on the GitHub `development` branch.
+2. Extract this package.
+3. Upload the complete contents to the repository root.
+4. Keep your existing working `config.js`.
+5. Commit:
 
-If you already ran the RC1 Supabase migration, do not run it again.
+   MFK v1.3.0 RC3 Cooking and Shopping Intelligence
 
-UPLOAD TO THE `development` BRANCH
+PAGES TEST
 
-Upload the complete contents of this package to the repository root.
+Keep GitHub Pages temporarily publishing from `development` while testing RC3.
+Do not merge into `main` yet.
 
-Keep your existing working:
-- config.js
+IMPORTANT: REGENERATE SHOPPING
 
-Suggested commit:
-MFK v1.3.0 RC2 hide completed cooking sessions
+Existing generated rows retain their old quantities.
+After RC3 deploys:
 
-REFRESH
+1. Open Meal Planner.
+2. Save the week.
+3. Press Generate Shopping Lists again.
 
-After GitHub Pages redeploys:
+This rebuilds the generated rows using Smart Shopping rules.
+
+PERSISTENT LOGIN TEST
+
+1. Sign in once.
+2. Fully close MFK on your phone.
+3. Reopen it.
+4. Confirm MFK opens signed in.
+5. Open Settings and confirm Cloud sync connected.
+
+CACHE
+
+After deployment:
 - Desktop: Ctrl + Shift + R
-- Installed app: completely close and reopen it
-
-FOCUSED RC2 TEST
-
-1. Start Bacon Fingers.
-2. Move to Step 2.
-3. Choose Resume Later.
-4. Confirm the Cooking Session card appears.
-5. Resume and choose Stop Cooking.
-6. Confirm the card disappears immediately.
-7. Start again and choose Finish Cooking.
-8. Complete or skip the journal.
-9. Confirm:
-   - Dinner Complete appears
-   - Cooking Session card is gone
-   - Resume button is gone
-
-Then quickly verify Planner, Shopping and Recipes still open normally.
+- Installed app: fully close and reopen it

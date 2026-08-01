@@ -487,3 +487,37 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
 .resume-cooking-card[hidden]{
   display:none !important;
 }
+
+
+/* =========================================================
+   MFK v1.3.0 RC3 — APP SESSION + SMART SHOPPING
+========================================================= */
+
+.settings-account-card{
+  background:linear-gradient(135deg,var(--forest),#2e6555);color:white;
+  border-radius:22px;padding:22px;margin-bottom:18px;box-shadow:var(--shadow)
+}
+.settings-account-main{display:flex;align-items:center;gap:14px}
+.settings-account-icon{
+  width:52px;height:52px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(255,255,255,.12);font-size:1.6rem
+}
+.settings-account-card h2{margin:2px 0;font-size:1.55rem}
+.settings-account-card .muted{color:rgba(255,255,255,.72);margin:0}
+.settings-account-status{
+  display:flex;align-items:center;gap:9px;margin:18px 0 12px;
+  background:rgba(255,255,255,.09);border-radius:13px;padding:11px 13px
+}
+.sync-dot{width:10px;height:10px;border-radius:50%;background:#d7aa55}
+.sync-dot.connected{background:#8ce0aa;box-shadow:0 0 0 4px rgba(140,224,170,.13)}
+.sync-dot.signed-out{background:#e7c48c}
+.settings-account-actions{display:flex;gap:9px;flex-wrap:wrap}
+.settings-account-actions .button{min-width:120px}
+.settings-account-note{font-size:.76rem;color:rgba(255,255,255,.67);margin:13px 0 0}
+.smart-quantity-note{
+  color:var(--muted);font-size:.7rem;margin-left:5px
+}
+@media(max-width:650px){
+  .settings-account-actions{display:grid;grid-template-columns:1fr}
+  .settings-account-actions .button{width:100%}
+}

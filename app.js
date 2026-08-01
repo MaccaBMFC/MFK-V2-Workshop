@@ -1,7 +1,20 @@
 
 const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
-const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+const db=configured?window.supabase.createClient(
+  cfg.SUPABASE_URL,
+  cfg.SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true,
+      storage:window.localStorage,
+      storageKey:"mfk-auth-v1",
+      flowType:"pkce"
+    }
+  }
+):null;
 const $=id=>document.getElementById(id);
 let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[],cookSession=null,cookWakeLock=null,cookTimerInterval=null,cookTimerEnd=null,cookSelectedRating=0,cookLogs=[],activeCookSession=null,cookSessionSaveTimer=null;
 
@@ -18,7 +31,32 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>setPage(b.data
 
 function showLogin(){if(!db){alert("Copy your working config.js into this V2 repository first.");return}$("login-dialog").showModal()}
 $("sign-in-button").onclick=showLogin;
-$("sign-out-button").onclick=async()=>{await db.auth.signOut();currentUser=null;activeCookSession=null;cookSession=null;applySession();await loadPrivateData()};
+
+$("settings-sign-in-button").onclick=showLogin;
+$("settings-sign-out-button").onclick=signOutOfMFK;
+$("settings-clear-cache-button").onclick=async()=>{
+  $("settings-sync-status").textContent="Refreshing app cache…";
+  if("serviceWorker" in navigator){
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(r=>r.update()));
+  }
+  $("settings-sync-status").textContent=currentUser
+    ?"Cache refreshed · Cloud sync connected"
+    :"Cache refreshed · Sign in to sync";
+  setTimeout(()=>location.reload(),350);
+};
+
+async function signOutOfMFK(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  activeCookSession=null;
+  cookSession=null;
+  applySession();
+  await loadPrivateData();
+  await refreshSmartHome();
+}
+$("sign-out-button").onclick=signOutOfMFK;
 document.querySelectorAll("[data-close-dialog]").forEach(b=>b.onclick=()=>$(b.dataset.closeDialog).close());
 
 $("login-form").addEventListener("submit",async e=>{
@@ -28,17 +66,55 @@ $("login-form").addEventListener("submit",async e=>{
   currentUser=data.user;$("login-message").textContent="";$("login-dialog").close();applySession();await loadPrivateData();await plannerOpenWeek(plannerWeekStart||new Date());
 });
 function applySession(){
-  $("sign-in-button").hidden=!!currentUser;$("sign-out-button").hidden=!currentUser;
+  const signedIn=!!currentUser;
+  $("sign-in-button").hidden=signedIn;
+  $("sign-out-button").hidden=!signedIn;
   $("user-label").textContent=currentUser?.email||"";
+
+  if($("settings-account-email")){
+    $("settings-account-email").textContent=currentUser?.email||"Not signed in";
+    $("settings-account-name").textContent=signedIn?"MFK connected":"MFK account";
+    $("settings-sync-status").textContent=signedIn?"Cloud sync connected":"Sign in to sync planning, shopping and cooking";
+    $("settings-sync-dot").classList.toggle("connected",signedIn);
+    $("settings-sync-dot").classList.toggle("signed-out",!signedIn);
+    $("settings-sign-in-button").hidden=signedIn;
+    $("settings-sign-out-button").hidden=!signedIn;
+  }
 }
 
 async function init(){
   const requested=location.hash.replace("#","")||"today";
   if(["today","planner","recipes","shopping","settings"].includes(requested))setPage(requested);
-  if(!db){$("recipe-status").hidden=false;$("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";return}
-  const {data:{session}}=await db.auth.getSession();currentUser=session?.user||null;applySession();
+  if(!db){
+    $("recipe-status").hidden=false;
+    $("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";
+    return;
+  }
+
+  const {data:{session},error}=await db.auth.getSession();
+  if(error)console.warn("MFK session restore:",error);
+  currentUser=session?.user||null;
+  applySession();
+
   await Promise.all([loadPublicData(),loadPrivateData()]);
-  plannerSetWeek(new Date());await plannerOpenWeek(plannerWeekStart);await refreshSmartHome();
+  plannerSetWeek(new Date());
+  await plannerOpenWeek(plannerWeekStart);
+  await refreshSmartHome();
+
+  db.auth.onAuthStateChange((event,nextSession)=>{
+    window.setTimeout(async()=>{
+      const nextUser=nextSession?.user||null;
+      const userChanged=nextUser?.id!==currentUser?.id;
+      currentUser=nextUser;
+      applySession();
+
+      if(["SIGNED_IN","SIGNED_OUT","USER_UPDATED"].includes(event)||userChanged){
+        await loadPrivateData();
+        await plannerOpenWeek(plannerWeekStart||new Date());
+        await refreshSmartHome();
+      }
+    },0);
+  });
 }
 async function loadPublicData(){
   const [r,c,m,i,ri,rf]=await Promise.all([
@@ -142,7 +218,7 @@ function renderShopping(){
     return `<section class="shopping-group">
       <div class="shopping-group-heading"><h3>${title}</h3><span>${items.length} item${items.length===1?"":"s"}</span></div>
       ${items.map(x=>{
-        const quantity=[formatShoppingQuantity(x.quantity),x.display_quantity,x.unit].filter(Boolean).join(" ");
+        const quantity=[formatShoppingQuantity(x.quantity,x.unit),x.display_quantity,displayShoppingUnit(x.unit,x.quantity)].filter(Boolean).join(" ");
         return `<div class="shopping-item-row ${sourceClass==="manual"?"manual-row":""}">
           <input type="checkbox" data-shopping-check="${x.id}" ${x.is_checked?"checked":""}>
           <span class="shopping-item-copy ${x.is_checked?"checked":""}">
@@ -180,12 +256,22 @@ function renderShopping(){
   });
 }
 
-function formatShoppingQuantity(value){
+function fractionGlyph(value){
+  const rounded=Math.round(Number(value)*4)/4;
+  const whole=Math.floor(rounded);
+  const fraction=Math.round((rounded-whole)*4);
+  const glyph={1:"¼",2:"½",3:"¾"}[fraction]||"";
+  return `${whole||""}${glyph}`||"0";
+}
+function formatShoppingQuantity(value,unit=""){
   if(value===null||value===undefined||value==="")return "";
   const n=Number(value);
   if(!Number.isFinite(n))return String(value);
+
+  const u=normaliseShoppingUnit(unit);
+  if(["cup","tbsp","tsp"].includes(u))return fractionGlyph(n);
   if(Number.isInteger(n))return String(n);
-  return String(Math.round(n*100)/100);
+  return String(Math.round(n*100)/100).replace(/\.0+$/,"");
 }
 
 
@@ -663,35 +749,105 @@ $("cook-tonight-button").onclick=()=>{
   if(id)startCookMode(id,todayEntry?.planned_servings||null,false);
 };
 
+function normaliseShoppingUnit(unit=""){
+  const u=String(unit||"").trim().toLowerCase().replace(/\./g,"");
+  const aliases={
+    "cups":"cup","c":"cup",
+    "tablespoon":"tbsp","tablespoons":"tbsp",
+    "teaspoon":"tsp","teaspoons":"tsp",
+    "grams":"g","gram":"g",
+    "kilograms":"kg","kilogram":"kg",
+    "millilitres":"ml","milliliters":"ml","millilitre":"ml","milliliter":"ml",
+    "litres":"l","liters":"l","litre":"l","liter":"l",
+    "cloves":"clove","leaves":"leaf",
+    "eggs":"egg","onions":"onion","carrots":"carrot",
+    "sticks":"stick","slices":"slice","tins":"tin","cans":"tin",
+    "packets":"packet","packs":"packet","bunches":"bunch",
+    "fillets":"fillet","cutlets":"cutlet"
+  };
+  return aliases[u]||u;
+}
+
+function displayShoppingUnit(unit="",quantity=null){
+  const u=normaliseShoppingUnit(unit);
+  if(!u)return "";
+  const plural=Number(quantity)!==1;
+  const names={
+    cup:plural?"cups":"cup",
+    tbsp:"tbsp",
+    tsp:"tsp",
+    g:"g",kg:"kg",ml:"ml",l:"L",
+    clove:plural?"cloves":"clove",
+    leaf:plural?"leaves":"leaf",
+    egg:plural?"eggs":"egg",
+    onion:plural?"onions":"onion",
+    carrot:plural?"carrots":"carrot",
+    stick:plural?"sticks":"stick",
+    slice:plural?"slices":"slice",
+    tin:plural?"tins":"tin",
+    packet:plural?"packets":"packet",
+    bunch:plural?"bunches":"bunch",
+    fillet:plural?"fillets":"fillet",
+    cutlet:plural?"cutlets":"cutlet"
+  };
+  return names[u]||u;
+}
+
+function canonicalIngredientName(name=""){
+  let value=String(name).trim().toLowerCase()
+    .replace(/[(),]/g," ")
+    .replace(/\s+/g," ")
+    .replace(/\b(fresh|dried|large|small|medium)\b/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+
+  const aliases=[
+    [/\bcloves? of garlic\b|\bgarlic cloves?\b/g,"garlic"],
+    [/\bbay leaves?\b/g,"bay leaf"],
+    [/\bbrown onions?\b/g,"brown onion"],
+    [/\bonions?\b/g,"onion"],
+    [/\bvegetable stock\b|\bveg stock\b/g,"vegetable stock"],
+    [/\bchicken stock\b/g,"chicken stock"]
+  ];
+  for(const [pattern,replacement] of aliases)value=value.replace(pattern,replacement);
+  return value.trim();
+}
+
+function isCountableShoppingItem(unit,name){
+  const u=normaliseShoppingUnit(unit);
+  const item=canonicalIngredientName(name);
+  const countUnits=new Set([
+    "clove","leaf","egg","onion","carrot","stick","slice","tin",
+    "packet","bunch","fillet","cutlet","each"
+  ]);
+  const countNames=/(onion|garlic|bay leaf|carrot|celery|leek|capsicum|apple|banana|orange|lemon|lime|potato|tomato|egg|avocado|zucchini|cucumber|mushroom|fillet|cutlet)$/;
+  return countUnits.has(u)||(u===""&&countNames.test(item));
+}
+
 function roundScaledQuantity(quantity,unit,ingredientName=""){
   if(quantity===null||quantity===undefined)return null;
   const n=Number(quantity);
   if(!Number.isFinite(n))return null;
+  const u=normaliseShoppingUnit(unit);
 
-  const u=String(unit||"").toLowerCase();
-  const name=String(ingredientName||"").toLowerCase();
+  if(isCountableShoppingItem(u,ingredientName))return Math.max(1,Math.ceil(n));
+  if(["cup","tbsp","tsp"].includes(u))return Math.max(.25,Math.ceil(n*4)/4);
 
-  const countableNames=/(onion|garlic|clove|carrot|celery|leek|capsicum|apple|banana|orange|lemon|lime|potato|tomato|egg|avocado|zucchini|cucumber|mushroom|bread roll|tortilla|fillet|cutlet)/;
-  const countableUnits=["clove","cloves","tin","tins","packet","packets","bunch","bunches","slice","slices","each","stick","sticks"];
-
-  if(countableUnits.includes(u)||(u===""&&countableNames.test(name)))return Math.max(1,Math.ceil(n));
-  if(u==="tbsp")return Math.max(.5,Math.round(n));
-  if(u==="tsp")return Math.max(.25,Math.round(n*2)/2);
-  if(["cup","cups"].includes(u))return Math.round(n*4)/4;
-
+  // Practical supermarket amounts rather than calculator noise.
   if(["g","ml"].includes(u)){
-    if(n>=1000)return Math.round(n/50)*50;
-    if(n>=100)return Math.round(n/25)*25;
-    return Math.max(1,Math.round(n/5)*5);
+    if(n>=1000)return Math.ceil(n/50)*50;
+    if(n>=100)return Math.ceil(n/25)*25;
+    return Math.max(5,Math.ceil(n/5)*5);
   }
-  if(["kg","l"].includes(u))return Math.round(n*10)/10;
-  return Math.round(n*100)/100;
+  if(["kg","l"].includes(u))return Math.ceil(n*10)/10;
+  return Math.ceil(n*100)/100;
 }
+
 function shoppingMergeKey(row){
   return [
     row.shopping_destination||"woolworths",
-    row.ingredient_id||row.ingredient_name?.toLowerCase(),
-    String(row.unit||"").toLowerCase()
+    canonicalIngredientName(row.ingredient_name||row.item_name||""),
+    normaliseShoppingUnit(row.unit)
   ].join("|");
 }
 
@@ -729,7 +885,7 @@ async function generateShoppingLists(){
 
       for(const row of (rows||[]).filter(x=>x.recipe_id===day.recipe_id)){
         const destination=row.shopping_destination||"woolworths";
-        const scaled=row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name);
+        const scaled=row.quantity===null?null:Number(row.quantity)*factor;
         const key=shoppingMergeKey(row);
 
         if(!merged.has(key)){
@@ -738,14 +894,14 @@ async function generateShoppingLists(){
             item_name:row.ingredient_name||"Ingredient",
             quantity:scaled,
             display_quantity:row.display_quantity||null,
-            unit:row.unit||null,
+            unit:normaliseShoppingUnit(row.unit)||null,
             destination,
             notes:null
           });
         }else{
           const current=merged.get(key);
           if(current.quantity!==null&&scaled!==null){
-            current.quantity=roundScaledQuantity(Number(current.quantity)+Number(scaled),current.unit,current.item_name);
+            current.quantity=Number(current.quantity)+Number(scaled);
           }else if(current.display_quantity&&row.display_quantity&&current.display_quantity!==row.display_quantity){
             current.notes=[current.notes,row.display_quantity].filter(Boolean).join("; ");
           }
@@ -763,7 +919,7 @@ async function generateShoppingLists(){
       shopping_list_id:getListId(x.destination)||getListId("woolworths"),
       ingredient_id:x.ingredient_id||null,
       item_name:x.item_name,
-      quantity:x.quantity,
+      quantity:x.quantity===null?null:roundScaledQuantity(x.quantity,x.unit,x.item_name),
       display_quantity:x.display_quantity,
       unit:x.unit,
       source_type:"meal_plan",
@@ -785,7 +941,7 @@ async function generateShoppingLists(){
 
     await loadPrivateData();
     await refreshSmartHome();
-    $("shopping-generation-status").textContent=`Lists generated: ${payload.length} combined items.`;
+    $("shopping-generation-status").textContent=`Smart lists generated: ${payload.length} combined items.`;
     $("shopping-generation-status").classList.add("success");
   }catch(error){
     $("shopping-generation-status").textContent=error.message||String(error);

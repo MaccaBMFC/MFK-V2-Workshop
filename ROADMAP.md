@@ -1,11 +1,17 @@
 # MFK Roadmap
 
-## In testing
-- v1.3.0 Cooking Intelligence
+## Current
+- v1.3.0 RC3 — Cooking & Shopping Intelligence
 
-## Backlog
-- Family Cookbook export
+## Stable candidate criteria
+- Persistent login survives complete phone-app restart.
+- Smart Shopping produces natural quantities.
+- Cooking Session lifecycle passes.
+- Full regression checklist passes.
+
+## Future backlog
 - Pantry inventory
-- Smart meal suggestions
-- Multiple named timers
-- Cooking history filters
+- Recipe photography
+- Seasonal and camping collections
+- Meal suggestions based on cooking history
+- Family cookbook export
