@@ -170,3 +170,29 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .manager-save-bar>div{width:100%}
   .manager-save-bar .button{flex:1}
 }
+
+/* ===== Sprint 2: Saturday-to-Friday Planner ===== */
+.planner-toolbar{display:grid;grid-template-columns:52px 1fr 52px;gap:14px;align-items:center;max-width:720px;margin:0 auto 20px}
+.week-nav-button{width:48px;height:48px;border:0;border-radius:50%;background:var(--forest);color:white;font-size:1.35rem;cursor:pointer}
+.week-selector{text-align:center}.week-selector label{display:block;color:var(--muted);font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.week-selector input{border:0;background:transparent;font:700 1.15rem Georgia,serif;color:var(--forest);text-align:center;padding:5px}
+.week-selector strong{display:block;color:var(--muted);font-size:.88rem}.planner-status{min-height:1.5rem;text-align:center;color:var(--muted)}
+.planner-status.success{color:var(--forest)}.planner-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+.planner-day-card{min-height:235px;background:var(--paper);border:1px solid var(--line);border-radius:19px;padding:15px;display:flex;flex-direction:column;gap:12px;box-shadow:0 7px 22px rgba(31,51,42,.05)}
+.planner-day-card.today{border:2px solid var(--gold)}.planner-day-heading{display:flex;justify-content:space-between;gap:8px}
+.planner-day-heading strong,.planner-day-heading span{display:block}.planner-day-heading strong{font:700 1.15rem Georgia,serif}.planner-day-heading span{font-size:.75rem;color:var(--muted)}
+.planner-meal-content{flex:1;border-radius:14px;background:linear-gradient(135deg,#f1eadf,#faf7f0);padding:14px;display:flex;flex-direction:column;justify-content:center;text-align:center}
+.planner-meal-emoji{font-size:2.4rem}.planner-meal-content h3{font-size:1.05rem;margin:8px 0 3px}.planner-meal-content p{font-size:.78rem;color:var(--muted);margin:0}
+.planner-day-actions{display:flex;gap:7px}.planner-day-actions .button{flex:1;padding:9px;font-size:.78rem}
+.meal-picker-dialog{width:min(900px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}.meal-picker-shell{padding:26px}.meal-picker-header h2{font-size:2.2rem;margin:0}
+.meal-type-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:20px 0}.meal-type-option{border:1px solid var(--line);background:white;color:var(--ink);border-radius:13px;padding:11px 8px;font-size:.78rem;font-weight:800;cursor:pointer}
+.meal-type-option.active{background:var(--forest);color:white;border-color:var(--forest)}
+#meal-picker-search-input,#meal-picker-custom-name,#meal-picker-notes,#meal-picker-servings{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:white;color:var(--ink)}
+.meal-picker-recipe-list{margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:330px;overflow:auto}
+.meal-picker-recipe{border:1px solid var(--line);background:white;border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center;text-align:left;cursor:pointer;color:var(--ink)}
+.meal-picker-recipe.active{background:var(--sage);border-color:var(--forest)}.meal-picker-recipe .emoji{font-size:1.7rem}.meal-picker-recipe strong,.meal-picker-recipe small{display:block}.meal-picker-recipe small{color:var(--muted)}
+.meal-picker-footer{display:grid;grid-template-columns:180px 1fr auto;gap:13px;align-items:end;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.servings-control{display:grid;grid-template-columns:40px 1fr 40px}.servings-control button{border:1px solid var(--line);background:var(--sage);color:var(--forest);font-weight:900}.servings-control input{border-radius:0;text-align:center}
+.meal-picker-actions{display:flex;gap:8px}
+@media(max-width:1050px){.planner-days{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.planner-days{grid-template-columns:1fr}.planner-day-card{min-height:auto}.planner-toolbar{grid-template-columns:44px 1fr 44px;padding:16px}.week-nav-button{width:42px;height:42px}.meal-picker-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.meal-picker-shell{padding:20px 15px 35px}.meal-type-grid{grid-template-columns:repeat(2,1fr)}.meal-picker-recipe-list{grid-template-columns:1fr;max-height:300px}.meal-picker-footer{grid-template-columns:1fr}.meal-picker-actions .button{flex:1}}

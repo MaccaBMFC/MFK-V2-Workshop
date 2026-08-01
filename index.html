@@ -98,22 +98,27 @@
 
     <section id="page-planner" class="page" data-page-name="planner">
       <div class="page-shell">
-        <div class="page-heading">
+        <div class="page-heading planner-heading">
           <div>
             <p class="eyebrow">Meal Planner</p>
             <h1>Plan your week</h1>
-            <p class="lede">Friday or Saturday start. Recipes, leftovers, takeaway, eating out, free night, or custom meals.</p>
+            <p class="lede">MFK plans from Saturday to Friday — the way your family actually shops and cooks.</p>
           </div>
-          <button class="button primary">✨ Plan My Week</button>
+          <button id="planner-save-week" class="button primary">💾 Save Week</button>
         </div>
 
-        <section class="placeholder-feature">
-          <div class="placeholder-icon">📅</div>
-          <div>
-            <h2>Meal Planner engine coming next</h2>
-            <p>The shell is ready. The next task will turn this area into the full-screen recipe picker and weekly day cards.</p>
+        <section class="planner-toolbar panel">
+          <button id="planner-prev-week" class="week-nav-button">←</button>
+          <div class="week-selector">
+            <label for="planner-week-start">Week beginning</label>
+            <input id="planner-week-start" type="date">
+            <strong id="planner-week-range"></strong>
           </div>
+          <button id="planner-next-week" class="week-nav-button">→</button>
         </section>
+
+        <div id="planner-status" class="planner-status"></div>
+        <section id="planner-days" class="planner-days"></section>
       </div>
     </section>
 
@@ -231,6 +236,50 @@
     <article id="recipe-detail"></article>
   </dialog>
 
+
+
+  <dialog id="meal-picker-dialog" class="meal-picker-dialog">
+    <button class="dialog-close" data-close-dialog="meal-picker-dialog">×</button>
+    <div class="meal-picker-shell">
+      <header class="meal-picker-header">
+        <p class="eyebrow">Choose meal</p>
+        <h2 id="meal-picker-date-title">Saturday</h2>
+      </header>
+
+      <div class="meal-type-grid">
+        <button class="meal-type-option active" data-meal-type="recipe">🍽️ Recipe</button>
+        <button class="meal-type-option" data-meal-type="leftovers">🥡 Leftovers</button>
+        <button class="meal-type-option" data-meal-type="takeaway">🍕 Takeaway</button>
+        <button class="meal-type-option" data-meal-type="eating_out">🍽 Eating Out</button>
+        <button class="meal-type-option" data-meal-type="free_night">🌙 Free Night</button>
+        <button class="meal-type-option" data-meal-type="custom">✏️ Custom</button>
+      </div>
+
+      <section id="meal-picker-recipe-panel">
+        <input id="meal-picker-search-input" type="search" placeholder="Search recipes…">
+        <div id="meal-picker-recipe-list" class="meal-picker-recipe-list"></div>
+      </section>
+
+      <section id="meal-picker-custom-panel" hidden>
+        <label>Custom meal<input id="meal-picker-custom-name" placeholder="BBQ at home"></label>
+      </section>
+
+      <div class="meal-picker-footer">
+        <label>Servings
+          <div class="servings-control">
+            <button id="meal-servings-minus" type="button">−</button>
+            <input id="meal-picker-servings" type="number" min="1" step="1" value="6">
+            <button id="meal-servings-plus" type="button">＋</button>
+          </div>
+        </label>
+        <label>Notes<input id="meal-picker-notes" placeholder="Optional note"></label>
+        <div class="meal-picker-actions">
+          <button id="meal-picker-clear" class="button secondary" type="button">Clear Day</button>
+          <button id="meal-picker-apply" class="button primary" type="button">Add to Week</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="recipe-manager-dialog" class="manager-dialog">
     <button class="dialog-close" data-close-dialog="recipe-manager-dialog">×</button>

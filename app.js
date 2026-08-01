@@ -3,7 +3,7 @@ const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
 const $=id=>document.getElementById(id);
-let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null;
+let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null;
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -25,7 +25,7 @@ $("login-form").addEventListener("submit",async e=>{
   e.preventDefault();$("login-message").textContent="Signing in…";
   const {data,error}=await db.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});
   if(error){$("login-message").textContent=error.message;return}
-  currentUser=data.user;$("login-message").textContent="";$("login-dialog").close();applySession();await loadPrivateData();
+  currentUser=data.user;$("login-message").textContent="";$("login-dialog").close();applySession();await loadPrivateData();await plannerOpenWeek(plannerWeekStart||new Date());
 });
 function applySession(){
   $("sign-in-button").hidden=!!currentUser;$("sign-out-button").hidden=!currentUser;
@@ -38,6 +38,7 @@ async function init(){
   if(!db){$("recipe-status").hidden=false;$("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";return}
   const {data:{session}}=await db.auth.getSession();currentUser=session?.user||null;applySession();
   await Promise.all([loadPublicData(),loadPrivateData()]);
+  plannerSetWeek(new Date());await plannerOpenWeek(plannerWeekStart);
 }
 async function loadPublicData(){
   const [r,c,m,i,ri,rf]=await Promise.all([
@@ -423,7 +424,7 @@ $("manager-form").addEventListener("submit",async e=>{
         recipe_id:recipeId,
         ingredient_id:ingredient.id,
         quantity:managerNumeric(row.quantity),
-        display_quantity:managerNumeric(row.quantity)===null?(row.quantity.trim()||null):null,
+        display_quantity:managerNumeric(row.quantity)===null?(row.quantity||null):null,
         unit:row.unit||null,
         destination_override:row.destination===ingredient.default_destination?null:row.destination,
         sort_order:row.sort_order
@@ -455,6 +456,114 @@ $("manager-form").addEventListener("submit",async e=>{
   }
 });
 
-$("plan-week-button").onclick=()=>setPage("planner");
-$("choose-tonight-button").onclick=()=>setPage("planner");
+
+/* ===== Sprint 2: Weekly Planner Engine ===== */
+const plannerPad=n=>String(n).padStart(2,"0");
+const plannerIso=d=>`${d.getFullYear()}-${plannerPad(d.getMonth()+1)}-${plannerPad(d.getDate())}`;
+const plannerParse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const plannerAdd=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const plannerSaturday=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+1)%7));return x};
+const plannerDay=d=>d.toLocaleDateString("en-AU",{weekday:"long"});
+const plannerShort=d=>d.toLocaleDateString("en-AU",{day:"numeric",month:"short"});
+const plannerLong=d=>d.toLocaleDateString("en-AU",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+function plannerSetWeek(date){
+  plannerWeekStart=plannerSaturday(date);
+  $("planner-week-start").value=plannerIso(plannerWeekStart);
+  $("planner-week-range").textContent=`${plannerShort(plannerWeekStart)} – ${plannerShort(plannerAdd(plannerWeekStart,6))}`;
+}
+async function plannerOpenWeek(date=plannerWeekStart||new Date()){
+  plannerSetWeek(date);plannerPlan=null;plannerDaysData=[];
+  $("planner-status").textContent=currentUser?"Loading week…":"Sign in to save and load meal plans.";
+  if(currentUser){
+    const start=plannerIso(plannerWeekStart),end=plannerIso(plannerAdd(plannerWeekStart,6));
+    const {data,error}=await db.from("meal_plans").select("*").eq("start_date",start).eq("end_date",end).limit(1);
+    if(error){$("planner-status").textContent=error.message;return}
+    plannerPlan=data?.[0]||null;
+    if(plannerPlan){
+      const {data:days,error:daysError}=await db.from("meal_plan_days").select("*").eq("meal_plan_id",plannerPlan.id).order("meal_date");
+      if(daysError){$("planner-status").textContent=daysError.message;return}
+      plannerDaysData=days||[];$("planner-status").textContent="Week planned ✓";
+    }else $("planner-status").textContent="New week — choose your meals.";
+  }
+  plannerRenderDays();
+}
+function plannerEntry(date){return plannerDaysData.find(x=>x.meal_date===plannerIso(date))||null}
+function plannerLabel(e){
+  if(!e)return {emoji:"＋",title:"Choose Meal",subtitle:"Tap to add"};
+  if(e.meal_type==="recipe"){const r=recipes.find(x=>x.id===e.recipe_id);return {emoji:r?.emoji||"🍽️",title:r?.title||"Recipe",subtitle:`Serves ${e.planned_servings||r?.base_servings||r?.serves||"—"}`}}
+  const map={leftovers:["🥡","Leftovers"],takeaway:["🍕","Takeaway"],eating_out:["🍽️","Eating Out"],free_night:["🌙","Free Night"],custom:["✏️",e.custom_meal_name||"Custom Meal"]};
+  const [emoji,title]=map[e.meal_type]||["🍽️","Meal"];return {emoji,title,subtitle:e.notes||""};
+}
+function plannerRenderDays(){
+  const today=plannerIso(new Date()),cards=[];
+  for(let i=0;i<7;i++){const d=plannerAdd(plannerWeekStart,i),e=plannerEntry(d),m=plannerLabel(e);
+    cards.push(`<article class="planner-day-card ${plannerIso(d)===today?"today":""}">
+      <div class="planner-day-heading"><div><strong>${plannerDay(d)}</strong><span>${plannerShort(d)}</span></div>${plannerIso(d)===today?"<span>Today</span>":""}</div>
+      <div class="planner-meal-content"><div class="planner-meal-emoji">${esc(m.emoji)}</div><h3>${esc(m.title)}</h3><p>${esc(m.subtitle)}</p></div>
+      <div class="planner-day-actions"><button class="button secondary" data-plan-date="${plannerIso(d)}">${e?"Edit":"Choose Meal"}</button>${e?`<button class="button secondary" data-clear-date="${plannerIso(d)}">Clear</button>`:""}</div>
+    </article>`)}
+  $("planner-days").innerHTML=cards.join("");
+  document.querySelectorAll("[data-plan-date]").forEach(b=>b.onclick=()=>plannerOpenPicker(b.dataset.planDate));
+  document.querySelectorAll("[data-clear-date]").forEach(b=>b.onclick=()=>plannerClearDate(b.dataset.clearDate));
+}
+function plannerOpenPicker(date){
+  if(!currentUser){showLogin();return}
+  plannerEditingDate=date;const e=plannerDaysData.find(x=>x.meal_date===date);
+  plannerSelectedType=e?.meal_type||"recipe";plannerSelectedRecipeId=e?.recipe_id||null;
+  $("meal-picker-date-title").textContent=plannerLong(plannerParse(date));$("meal-picker-search-input").value="";
+  $("meal-picker-custom-name").value=e?.custom_meal_name||"";$("meal-picker-notes").value=e?.notes||"";
+  const r=recipes.find(x=>x.id===plannerSelectedRecipeId);
+  $("meal-picker-servings").value=e?.planned_servings||r?.base_servings||r?.serves||6;
+  document.querySelectorAll(".meal-type-option").forEach(b=>b.classList.toggle("active",b.dataset.mealType===plannerSelectedType));
+  plannerPanels();plannerRenderRecipes();$("meal-picker-dialog").showModal();
+}
+function plannerPanels(){$("meal-picker-recipe-panel").hidden=plannerSelectedType!=="recipe";$("meal-picker-custom-panel").hidden=plannerSelectedType!=="custom"}
+document.querySelectorAll(".meal-type-option").forEach(b=>b.onclick=()=>{plannerSelectedType=b.dataset.mealType;document.querySelectorAll(".meal-type-option").forEach(x=>x.classList.toggle("active",x===b));plannerPanels()});
+function plannerRenderRecipes(){
+  const q=$("meal-picker-search-input").value.trim().toLowerCase();
+  const list=recipes.filter(r=>!q||[r.title,r.category,r.story].join(" ").toLowerCase().includes(q));
+  $("meal-picker-recipe-list").innerHTML=list.map(r=>`<button class="meal-picker-recipe ${plannerSelectedRecipeId===r.id?"active":""}" data-picker-recipe="${r.id}"><span class="emoji">${esc(r.emoji||"🍽️")}</span><span><strong>${esc(r.title)}</strong><small>${esc(r.category||"Recipe")} · Serves ${esc(r.base_servings??r.serves??"—")}</small></span></button>`).join("");
+  document.querySelectorAll("[data-picker-recipe]").forEach(b=>b.onclick=()=>{plannerSelectedRecipeId=b.dataset.pickerRecipe;const r=recipes.find(x=>x.id===plannerSelectedRecipeId);if(r)$("meal-picker-servings").value=r.base_servings||r.serves||6;plannerRenderRecipes()});
+}
+$("meal-picker-search-input").oninput=plannerRenderRecipes;
+$("meal-servings-minus").onclick=()=>{$("meal-picker-servings").value=Math.max(1,Number($("meal-picker-servings").value||1)-1)};
+$("meal-servings-plus").onclick=()=>{$("meal-picker-servings").value=Math.max(1,Number($("meal-picker-servings").value||1)+1)};
+$("meal-picker-apply").onclick=()=>{
+  if(plannerSelectedType==="recipe"&&!plannerSelectedRecipeId)return alert("Choose a recipe first.");
+  if(plannerSelectedType==="custom"&&!$("meal-picker-custom-name").value.trim())return alert("Enter the custom meal name.");
+  const e=plannerDaysData.find(x=>x.meal_date===plannerEditingDate);
+  const value={...(e||{}),meal_date:plannerEditingDate,meal_type:plannerSelectedType,recipe_id:plannerSelectedType==="recipe"?plannerSelectedRecipeId:null,custom_meal_name:plannerSelectedType==="custom"?$("meal-picker-custom-name").value.trim():null,planned_servings:plannerSelectedType==="recipe"?Number($("meal-picker-servings").value||6):null,notes:$("meal-picker-notes").value.trim()||null};
+  e?Object.assign(e,value):plannerDaysData.push(value);plannerRenderDays();$("planner-status").textContent="Changes ready to save.";$("meal-picker-dialog").close();
+};
+async function plannerClearDate(date){
+  const e=plannerDaysData.find(x=>x.meal_date===date);
+  if(e?.id&&currentUser){const {error}=await db.from("meal_plan_days").delete().eq("id",e.id);if(error)return alert(error.message)}
+  plannerDaysData=plannerDaysData.filter(x=>x.meal_date!==date);plannerRenderDays();$("planner-status").textContent="Day cleared.";
+}
+$("meal-picker-clear").onclick=async()=>{await plannerClearDate(plannerEditingDate);$("meal-picker-dialog").close()};
+async function plannerSaveWeek(){
+  if(!currentUser){showLogin();return}
+  $("planner-status").textContent="Saving week…";
+  try{
+    const start=plannerIso(plannerWeekStart),end=plannerIso(plannerAdd(plannerWeekStart,6));
+    if(!plannerPlan){const {data,error}=await db.from("meal_plans").insert({title:`Week of ${plannerShort(plannerWeekStart)}`,start_date:start,end_date:end,preferred_start_day:"saturday",status:"planned"}).select().single();if(error)throw error;plannerPlan=data}
+    else{const {error}=await db.from("meal_plans").update({status:"planned",preferred_start_day:"saturday"}).eq("id",plannerPlan.id);if(error)throw error}
+    const {data:existing,error:readError}=await db.from("meal_plan_days").select("id,meal_date").eq("meal_plan_id",plannerPlan.id);if(readError)throw readError;
+    const dates=new Set(plannerDaysData.map(x=>x.meal_date)),remove=(existing||[]).filter(x=>!dates.has(x.meal_date)).map(x=>x.id);
+    if(remove.length){const {error}=await db.from("meal_plan_days").delete().in("id",remove);if(error)throw error}
+    for(let i=0;i<plannerDaysData.length;i++){const x=plannerDaysData[i],payload={meal_plan_id:plannerPlan.id,meal_date:x.meal_date,meal_type:x.meal_type,recipe_id:x.recipe_id||null,custom_meal_name:x.custom_meal_name||null,planned_servings:x.planned_servings||null,notes:x.notes||null,sort_order:i+1};
+      if(x.id){const {error}=await db.from("meal_plan_days").update(payload).eq("id",x.id);if(error)throw error}
+      else{const {data,error}=await db.from("meal_plan_days").insert(payload).select().single();if(error)throw error;Object.assign(x,data)}
+    }
+    $("planner-status").textContent="Week planned ✓";$("planner-status").classList.add("success");await plannerOpenWeek(plannerWeekStart);
+  }catch(e){$("planner-status").classList.remove("success");$("planner-status").textContent=e.message||String(e)}
+}
+$("planner-save-week").onclick=plannerSaveWeek;
+$("planner-prev-week").onclick=()=>plannerOpenWeek(plannerAdd(plannerWeekStart,-7));
+$("planner-next-week").onclick=()=>plannerOpenWeek(plannerAdd(plannerWeekStart,7));
+$("planner-week-start").onchange=()=>plannerOpenWeek(plannerParse($("planner-week-start").value));
+
+$("plan-week-button").onclick=()=>{setPage("planner");plannerOpenWeek(plannerWeekStart||new Date())};
+$("choose-tonight-button").onclick=()=>{setPage("planner");plannerOpenWeek(plannerWeekStart||new Date())};
 init();
