@@ -423,7 +423,7 @@ $("manager-form").addEventListener("submit",async e=>{
         recipe_id:recipeId,
         ingredient_id:ingredient.id,
         quantity:managerNumeric(row.quantity),
-        display_quantity:managerNumeric(row.quantity)===null?(row.quantity||null):null,
+        display_quantity:managerNumeric(row.quantity)===null?(row.quantity.trim()||null):null,
         unit:row.unit||null,
         destination_override:row.destination===ingredient.default_destination?null:row.destination,
         sort_order:row.sort_order
