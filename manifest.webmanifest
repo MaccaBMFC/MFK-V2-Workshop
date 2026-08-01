@@ -1,7 +1,7 @@
 {
   "name": "MFK \u2014 Macca's Family Kitchen",
   "short_name": "MFK",
-  "description": "Plan. Shop. Cook. Together.",
+  "description": "MFK v1.2 Kitchen Assistant \u2014 Plan. Shop. Cook. Together.",
   "start_url": "./#today",
   "display": "standalone",
   "background_color": "#f5efe4",

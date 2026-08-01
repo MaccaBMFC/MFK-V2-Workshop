@@ -330,3 +330,123 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .week-preview-row{grid-template-columns:60px 30px 1fr}
   .week-preview-servings{display:none}
 }
+
+
+/* =========================================================
+   MFK V1.2 — KITCHEN ASSISTANT
+========================================================= */
+
+.resume-cooking-card{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  margin-bottom:17px;padding:17px 20px;border-radius:18px;
+  background:linear-gradient(135deg,#fff4d9,#f5dfae);border:1px solid #dfbd74
+}
+.resume-cooking-card h2{margin:0;font-size:1.55rem}
+.resume-cooking-card p:last-child{margin:4px 0 0;color:#755c31}
+
+.cook-mode-dialog{
+  width:100%;height:100dvh;max-width:none;max-height:none;border-radius:0;
+  background:var(--cream);overflow:hidden
+}
+.cook-mode-shell{height:100%;display:grid;grid-template-rows:auto auto 1fr auto}
+.cook-mode-header{
+  background:var(--forest);color:white;padding:14px 18px;
+  display:grid;grid-template-columns:48px 1fr auto;gap:13px;align-items:center
+}
+.cook-title-block h2{font-size:clamp(1.45rem,4vw,2.4rem);margin:0}
+.cook-title-block p:last-child{margin:3px 0 0;color:rgba(255,255,255,.7)}
+.cook-icon-button{
+  width:44px;height:44px;border:1px solid rgba(255,255,255,.22);border-radius:50%;
+  background:rgba(255,255,255,.08);color:white;font-size:1.4rem;cursor:pointer
+}
+.wake-lock-status{
+  background:rgba(255,255,255,.1);border-radius:999px;padding:7px 10px;
+  font-size:.74rem;white-space:nowrap
+}
+.cook-progress-wrap{padding:13px 18px;background:var(--paper);border-bottom:1px solid var(--line)}
+.cook-progress-copy{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}
+.cook-progress-copy span{color:var(--muted)}
+.cook-progress-track{height:10px;background:var(--sage);border-radius:999px;overflow:hidden}
+#cook-progress-bar{height:100%;width:0;background:var(--gold);border-radius:inherit;transition:width .25s ease}
+.cook-step-stage{
+  overflow:auto;padding:22px;display:grid;align-content:center;gap:16px;
+  max-width:900px;width:100%;margin:auto
+}
+.cook-side-panel{display:grid;justify-items:start}
+.cook-panel-toggle{
+  border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  padding:9px 13px;font-weight:800;color:var(--forest);cursor:pointer
+}
+.cook-scaled-ingredients{
+  width:100%;margin-top:10px;background:var(--paper);border:1px solid var(--line);
+  border-radius:18px;padding:15px;max-height:260px;overflow:auto
+}
+.cook-scaled-ingredients ul{margin:0;padding-left:20px}.cook-scaled-ingredients li{margin:7px 0}
+.cook-step-card{
+  min-height:300px;background:var(--paper);border:1px solid var(--line);
+  border-radius:28px;padding:34px;display:grid;place-items:center;align-content:center;
+  text-align:center;box-shadow:var(--shadow)
+}
+.cook-step-number{
+  width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  background:var(--forest);color:white;font:800 1.25rem Georgia,serif
+}
+#cook-step-text{font:700 clamp(1.45rem,4vw,2.4rem)/1.35 Georgia,serif;max-width:700px}
+.cook-timer-suggestion{
+  display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+  background:#fff4d9;border-radius:15px;padding:11px 13px
+}
+.active-timer-card{
+  background:var(--forest);color:white;border-radius:18px;padding:14px 17px;
+  display:flex;justify-content:space-between;align-items:center;gap:14px
+}
+.active-timer-card strong{display:block;font-size:1.8rem}.active-timer-card span{color:rgba(255,255,255,.7)}
+.cook-mode-footer{
+  padding:13px max(18px,env(safe-area-inset-right)) max(13px,env(safe-area-inset-bottom));
+  background:var(--paper);border-top:1px solid var(--line);display:flex;gap:10px
+}
+.cook-mode-footer .button{flex:1;padding:15px}
+
+.cook-finish-dialog{width:min(560px,calc(100vw - 24px))}
+.cook-finish-shell{padding:34px;text-align:center}
+.finish-emoji{font-size:4.5rem}.cook-finish-shell h2{font-size:2.4rem;margin:7px 0}
+.rating-picker{display:flex;justify-content:center;gap:5px;margin:19px 0}
+.rating-picker button{border:0;background:transparent;color:#c9c4bb;font-size:2.25rem;cursor:pointer;padding:2px}
+.rating-picker button.active{color:var(--gold)}
+.finish-note-label{display:block;text-align:left;font-weight:800}
+.finish-note-label textarea{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:13px;padding:12px}
+.finish-actions{display:flex;gap:9px;margin-top:16px}.finish-actions .button{flex:1}
+
+.analytics-dialog{width:min(850px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+.analytics-shell{padding:30px}.analytics-shell h2{font-size:2.6rem;margin:0}
+.analytics-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:24px 0}
+.analytics-metric{background:var(--cream);border-radius:17px;padding:17px;text-align:center}
+.analytics-metric strong{display:block;font:800 2rem Georgia,serif;color:var(--forest)}
+.analytics-metric span{font-size:.76rem;color:var(--muted)}
+.analytics-section{margin-top:25px}.analytics-section h3{font-size:1.45rem}
+.analytics-list{display:grid;gap:8px}
+.analytics-row{
+  display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;
+  border:1px solid var(--line);border-radius:14px;padding:11px;background:white
+}
+.analytics-row .emoji{font-size:1.55rem}.analytics-row strong,.analytics-row small{display:block}
+.analytics-row small{color:var(--muted)}.analytics-row b{color:var(--forest)}
+
+.manual-delete-button{
+  border:0;background:#fff0f0;color:var(--danger);border-radius:9px;
+  width:34px;height:34px;cursor:pointer;font-size:1rem
+}
+.shopping-item-row.manual-row{grid-template-columns:30px 1fr auto 34px}
+.shopping-complete-label{color:var(--forest)!important;font-weight:850}
+
+@media(max-width:650px){
+  .resume-cooking-card{align-items:flex-start;flex-direction:column}
+  .resume-cooking-card .button{width:100%}
+  .cook-mode-header{grid-template-columns:44px 1fr}.wake-lock-status{grid-column:1/-1;justify-self:start}
+  .cook-step-stage{padding:14px}.cook-step-card{min-height:260px;padding:24px 18px}
+  .cook-finish-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
+  .cook-finish-shell{padding:28px 18px}
+  .finish-actions{flex-direction:column}
+  .analytics-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
+  .analytics-metrics{grid-template-columns:repeat(2,1fr)}
+}

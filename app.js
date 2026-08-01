@@ -3,7 +3,7 @@ const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
 const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
 const $=id=>document.getElementById(id);
-let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[];
+let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[],cookSession=null,cookWakeLock=null,cookTimerInterval=null,cookTimerEnd=null,cookSelectedRating=0,cookLogs=[];
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -54,7 +54,7 @@ async function loadPublicData(){
   recipes=r.data||[];categories=c.data||[];members=m.data||[];
   masterIngredients=i.data||[];structuredRows=ri.data||[];recipeFavourites=rf.data||[];
   $("settings-category-count").textContent=categories.length;$("settings-member-count").textContent=members.length;
-  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();
+  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();renderResumeCooking();
 }
 async function loadPrivateData(){
   if(!currentUser){
@@ -65,7 +65,7 @@ async function loadPrivateData(){
     db.from("shopping_items").select("*").order("sort_order").order("created_at")
   ]);
   if(l.error||i.error){console.error(l.error||i.error);return}
-  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();refreshSmartHome();
+  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();await loadCookLogs();refreshSmartHome();renderResumeCooking();
 }
 function renderFilters(){
   $("category-filters").innerHTML=[
@@ -116,12 +116,16 @@ function renderShoppingCounts(){
   const woolCount=shoppingItems.filter(x=>x.shopping_list_id===woolId&&!x.is_checked).length;
   const fruitCount=shoppingItems.filter(x=>x.shopping_list_id===fruitId&&!x.is_checked).length;
   const pantryCount=shoppingItems.filter(x=>x.shopping_list_id===pantryId&&!x.is_checked).length;
-  $("woolies-count").textContent=woolCount;
-  $("fruit-count").textContent=fruitCount;
-  $("pantry-count").textContent=pantryCount;
+  $("woolies-count").textContent=woolCount===0?"Complete":woolCount;
+  $("fruit-count").textContent=fruitCount===0?"Complete":fruitCount;
+  $("pantry-count").textContent=pantryCount===0?"Complete":pantryCount;
   $("tab-count-woolworths").textContent=woolCount;
   $("tab-count-fruit_veg").textContent=fruitCount;
   $("tab-count-pantry").textContent=pantryCount;
+  ["woolies-count","fruit-count","pantry-count"].forEach(id=>{
+    const el=$(id);const small=el?.closest("small");
+    if(small)small.lastChild.textContent=el.textContent==="Complete"?"":" items";
+  });
 }
 function renderShopping(){
   if(!currentUser){
@@ -139,14 +143,15 @@ function renderShopping(){
       <div class="shopping-group-heading"><h3>${title}</h3><span>${items.length} item${items.length===1?"":"s"}</span></div>
       ${items.map(x=>{
         const quantity=[formatShoppingQuantity(x.quantity),x.display_quantity,x.unit].filter(Boolean).join(" ");
-        return `<label class="shopping-item-row">
+        return `<div class="shopping-item-row ${sourceClass==="manual"?"manual-row":""}">
           <input type="checkbox" data-shopping-check="${x.id}" ${x.is_checked?"checked":""}>
           <span class="shopping-item-copy ${x.is_checked?"checked":""}">
             <strong>${esc([quantity,x.item_name].filter(Boolean).join(" "))}</strong>
             ${x.notes?`<small>${esc(x.notes)}</small>`:""}
           </span>
           <span class="shopping-source-pill ${sourceClass}">${sourceClass==="manual"?"Manual":"Meal plan"}</span>
-        </label>`;
+          ${sourceClass==="manual"?`<button class="manual-delete-button" type="button" data-delete-manual="${x.id}" aria-label="Delete ${esc(x.item_name)}">🗑️</button>`:""}
+        </div>`;
       }).join("")}
     </section>`;
   };
@@ -164,6 +169,15 @@ function renderShopping(){
       renderShopping();renderShoppingCounts();
     }
   });
+  document.querySelectorAll("[data-delete-manual]").forEach(b=>b.onclick=async()=>{
+    const item=shoppingItems.find(x=>x.id===b.dataset.deleteManual);
+    if(!item||item.source_type!=="manual")return;
+    if(!confirm(`Delete "${item.item_name}" from the list?`))return;
+    const {error}=await db.from("shopping_items").delete().eq("id",item.id).eq("source_type","manual");
+    if(error){alert(error.message);return}
+    shoppingItems=shoppingItems.filter(x=>x.id!==item.id);
+    renderShopping();renderShoppingCounts();
+  });
 }
 
 function formatShoppingQuantity(value){
@@ -174,6 +188,290 @@ function formatShoppingQuantity(value){
   return String(Math.round(n*100)/100);
 }
 
+
+
+/* =========================================================
+   MFK V1.2 — KITCHEN ASSISTANT
+========================================================= */
+
+const COOK_SESSION_KEY="mfk_active_cook_session_v12";
+
+async function loadCookLogs(){
+  if(!currentUser){cookLogs=[];return}
+  const {data,error}=await db.from("recipe_cook_logs")
+    .select("*")
+    .order("cooked_on",{ascending:false})
+    .order("created_at",{ascending:false});
+  if(error){console.error(error);cookLogs=[];return}
+  cookLogs=data||[];
+}
+
+function getSavedCookSession(){
+  try{return JSON.parse(localStorage.getItem(COOK_SESSION_KEY)||"null")}catch{return null}
+}
+function saveCookSession(){
+  if(!cookSession)return;
+  localStorage.setItem(COOK_SESSION_KEY,JSON.stringify(cookSession));
+  renderResumeCooking();
+}
+function clearCookSession(){
+  localStorage.removeItem(COOK_SESSION_KEY);
+  cookSession=null;
+  renderResumeCooking();
+}
+function renderResumeCooking(){
+  const saved=getSavedCookSession();
+  const card=$("resume-cooking-card");
+  if(!card)return;
+  if(!saved||saved.completed){card.hidden=true;return}
+  const recipe=recipes.find(r=>r.id===saved.recipeId);
+  if(!recipe){card.hidden=true;return}
+  card.hidden=false;
+  $("resume-cooking-title").textContent=`Resume ${recipe.title}`;
+  $("resume-cooking-detail").textContent=`Step ${Number(saved.stepIndex||0)+1} of ${managerLineArray(recipe.method).length}`;
+}
+$("resume-cooking-button").onclick=()=>{
+  const saved=getSavedCookSession();
+  if(saved)startCookMode(saved.recipeId,saved.servings,true);
+};
+
+function scaledRecipeIngredients(recipeId,servings){
+  const recipe=recipes.find(r=>r.id===recipeId);
+  const base=Number(recipe?.base_servings||recipe?.serves||servings||1);
+  const factor=base>0?Number(servings||base)/base:1;
+  return structuredRows.filter(x=>x.recipe_id===recipeId).map(row=>({
+    ...row,
+    scaledQuantity:row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name)
+  }));
+}
+
+async function startCookMode(recipeId,servings=null,resume=false){
+  const recipe=recipes.find(r=>r.id===recipeId);
+  if(!recipe)return;
+
+  const saved=getSavedCookSession();
+  const steps=managerLineArray(recipe.method);
+  const effectiveServings=Number(servings||saved?.servings||recipe.base_servings||recipe.serves||1);
+
+  cookSession={
+    recipeId,
+    servings:effectiveServings,
+    stepIndex:resume&&saved?.recipeId===recipeId?Number(saved.stepIndex||0):0,
+    startedAt:resume&&saved?.recipeId===recipeId?saved.startedAt:new Date().toISOString(),
+    completed:false
+  };
+
+  $("cook-mode-title").textContent=recipe.title;
+  $("cook-mode-subtitle").textContent=`Cooking for ${effectiveServings} · ${recipe.prep||"—"} prep · ${recipe.cook||"—"} cook`;
+  renderCookIngredients();
+  renderCookStep();
+  saveCookSession();
+  $("cook-mode-dialog").showModal();
+  await requestCookWakeLock();
+  try{await screen.orientation?.lock?.("portrait")}catch{}
+}
+
+function renderCookIngredients(){
+  if(!cookSession)return;
+  const rows=scaledRecipeIngredients(cookSession.recipeId,cookSession.servings);
+  $("cook-scaled-ingredients").innerHTML=rows.length
+    ? `<ul>${rows.map(x=>{
+        const qty=x.scaledQuantity??x.display_quantity??"";
+        return `<li>${esc([qty,x.unit,x.ingredient_name].filter(v=>v!==null&&v!=="").join(" "))}</li>`;
+      }).join("")}</ul>`
+    : '<p class="muted">Structured ingredients are not available for this recipe yet.</p>';
+}
+
+function renderCookStep(){
+  if(!cookSession)return;
+  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
+  const steps=managerLineArray(recipe?.method);
+  if(!steps.length)return;
+
+  cookSession.stepIndex=Math.min(Math.max(0,cookSession.stepIndex),steps.length-1);
+  const step=steps[cookSession.stepIndex];
+  const number=cookSession.stepIndex+1;
+  const percent=Math.round(number/steps.length*100);
+
+  $("cook-step-label").textContent=`Step ${number} of ${steps.length}`;
+  $("cook-progress-percent").textContent=`${percent}%`;
+  $("cook-progress-bar").style.width=`${percent}%`;
+  $("cook-step-number").textContent=number;
+  $("cook-step-text").textContent=step;
+  $("cook-prev-step").disabled=cookSession.stepIndex===0;
+  $("cook-next-step").textContent=cookSession.stepIndex===steps.length-1?"Finish Cooking 🎉":"Next →";
+
+  const timer=detectTimerFromStep(step);
+  $("cook-timer-suggestion").hidden=!timer;
+  if(timer){
+    $("cook-timer-label").textContent=`⏲ ${timer.label}`;
+    $("start-step-timer").dataset.seconds=timer.seconds;
+    $("start-step-timer").dataset.label=timer.label;
+  }
+  saveCookSession();
+}
+
+function detectTimerFromStep(text){
+  const value=String(text||"");
+  const match=value.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i);
+  if(!match)return null;
+  const amount=Number(match[1]);
+  const unit=match[2].toLowerCase();
+  let seconds=amount;
+  if(unit.startsWith("min"))seconds*=60;
+  if(unit.startsWith("hour")||unit.startsWith("hr"))seconds*=3600;
+  return {seconds:Math.round(seconds),label:`${match[1]} ${match[2]}`};
+}
+
+$("cook-prev-step").onclick=()=>{if(cookSession?.stepIndex>0){cookSession.stepIndex--;renderCookStep()}};
+$("cook-next-step").onclick=()=>{
+  if(!cookSession)return;
+  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
+  const steps=managerLineArray(recipe?.method);
+  if(cookSession.stepIndex>=steps.length-1){openCookFinish();return}
+  cookSession.stepIndex++;renderCookStep();
+};
+$("toggle-cook-ingredients").onclick=()=>{
+  const panel=$("cook-scaled-ingredients");
+  panel.hidden=!panel.hidden;
+};
+$("cook-mode-exit").onclick=async()=>{
+  $("cook-mode-dialog").close();
+  await releaseCookWakeLock();
+  renderResumeCooking();
+};
+
+async function requestCookWakeLock(){
+  if(!("wakeLock" in navigator)){
+    $("wake-lock-status").textContent="📱 Keep screen awake unavailable";
+    return;
+  }
+  try{
+    cookWakeLock=await navigator.wakeLock.request("screen");
+    $("wake-lock-status").textContent="📱 Screen staying awake";
+    cookWakeLock.addEventListener("release",()=>{$("wake-lock-status").textContent="📱 Screen awake released"});
+  }catch{
+    $("wake-lock-status").textContent="📱 Keep screen awake unavailable";
+  }
+}
+async function releaseCookWakeLock(){
+  try{await cookWakeLock?.release()}catch{}
+  cookWakeLock=null;
+  try{screen.orientation?.unlock?.()}catch{}
+}
+document.addEventListener("visibilitychange",async()=>{
+  if(document.visibilityState==="visible"&&$("cook-mode-dialog")?.open&&!cookWakeLock)await requestCookWakeLock();
+});
+
+$("start-step-timer").onclick=()=>{
+  const seconds=Number($("start-step-timer").dataset.seconds||0);
+  if(seconds>0)startCookTimer(seconds,$("start-step-timer").dataset.label);
+};
+function startCookTimer(seconds,label){
+  clearInterval(cookTimerInterval);
+  cookTimerEnd=Date.now()+seconds*1000;
+  $("active-timer-card").hidden=false;
+  $("active-timer-step").textContent=label||"Cooking timer";
+  updateCookTimer();
+  cookTimerInterval=setInterval(updateCookTimer,1000);
+}
+function updateCookTimer(){
+  const remaining=Math.max(0,Math.ceil((cookTimerEnd-Date.now())/1000));
+  const mins=Math.floor(remaining/60),secs=remaining%60;
+  $("active-timer-display").textContent=`${String(mins).padStart(2,"0")}:${String(secs).padStart(2,"0")}`;
+  if(remaining<=0){
+    clearInterval(cookTimerInterval);cookTimerInterval=null;
+    $("active-timer-display").textContent="DONE";
+    try{navigator.vibrate?.([250,150,250,150,500])}catch{}
+    if("Notification" in window&&Notification.permission==="granted"){
+      new Notification("MFK Timer",{body:"Your cooking timer is finished."});
+    }
+    alert("⏲️ Timer finished!");
+  }
+}
+$("cancel-active-timer").onclick=()=>{
+  clearInterval(cookTimerInterval);cookTimerInterval=null;cookTimerEnd=null;
+  $("active-timer-card").hidden=true;
+};
+
+function openCookFinish(){
+  $("cook-mode-dialog").close();
+  releaseCookWakeLock();
+  cookSelectedRating=0;
+  $("cook-finish-note").value="";
+  $("cook-finish-message").textContent="";
+  renderRatingPicker();
+  $("cook-finish-dialog").showModal();
+}
+function renderRatingPicker(){
+  document.querySelectorAll("[data-rating]").forEach(b=>b.classList.toggle("active",Number(b.dataset.rating)<=cookSelectedRating));
+}
+document.querySelectorAll("[data-rating]").forEach(b=>b.onclick=()=>{cookSelectedRating=Number(b.dataset.rating);renderRatingPicker()});
+
+async function saveCookCompletion(saveNote=true){
+  if(!cookSession)return finishCookReturnHome();
+  $("cook-finish-message").textContent="Saving your cook…";
+  const payload={
+    recipe_id:cookSession.recipeId,
+    cooked_on:plannerIso(new Date()),
+    servings_cooked:cookSession.servings||null,
+    notes:saveNote?($("cook-finish-note").value.trim()||null):null,
+    rating:cookSelectedRating||null
+  };
+  const {error}=await db.from("recipe_cook_logs").insert(payload);
+  if(error){$("cook-finish-message").textContent=error.message;return}
+  await loadCookLogs();
+  finishCookReturnHome();
+}
+function finishCookReturnHome(){
+  clearCookSession();
+  $("cook-finish-dialog").close();
+  setPage("today");
+  refreshSmartHome();
+}
+$("save-cook-finish").onclick=()=>saveCookCompletion(true);
+$("finish-without-note").onclick=()=>saveCookCompletion(false);
+
+async function openKitchenAnalytics(){
+  if(!currentUser){showLogin();return}
+  await loadCookLogs();
+  renderKitchenAnalytics();
+  $("kitchen-analytics-dialog").showModal();
+}
+$("open-kitchen-analytics").onclick=openKitchenAnalytics;
+
+function renderKitchenAnalytics(){
+  const total=cookLogs.length;
+  const thisMonth=cookLogs.filter(x=>{
+    const d=new Date(`${x.cooked_on}T00:00:00`);
+    const now=new Date();
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  }).length;
+  const rated=cookLogs.filter(x=>Number(x.rating)>0);
+  const avgRating=rated.length?(rated.reduce((a,x)=>a+Number(x.rating),0)/rated.length).toFixed(1):"—";
+  const avgServes=total?(cookLogs.reduce((a,x)=>a+Number(x.servings_cooked||0),0)/total).toFixed(1):"—";
+
+  $("analytics-metrics").innerHTML=[
+    ["Meals cooked",total],
+    ["This month",thisMonth],
+    ["Average rating",avgRating],
+    ["Average serves",avgServes]
+  ].map(([label,value])=>`<div class="analytics-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join("");
+
+  const counts=new Map();
+  cookLogs.forEach(log=>counts.set(log.recipe_id,(counts.get(log.recipe_id)||0)+1));
+  const most=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $("analytics-most-cooked").innerHTML=most.length?most.map(([id,count],index)=>{
+    const r=recipes.find(x=>x.id===id);
+    return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${index===0?"Family champion":"Cooked regularly"}</small></span><b>${count}×</b></div>`;
+  }).join(""):'<p class="muted">Finish a cooking session to start building history.</p>';
+
+  $("analytics-recent").innerHTML=cookLogs.slice(0,8).map(log=>{
+    const r=recipes.find(x=>x.id===log.recipe_id);
+    const stars=log.rating?` · ${"★".repeat(Number(log.rating))}`:"";
+    return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${esc(log.cooked_on)}${stars}${log.notes?` · ${esc(log.notes)}`:""}</small></span><b>👥 ${esc(log.servings_cooked||"—")}</b></div>`;
+  }).join("")||'<p class="muted">No completed cooks yet.</p>';
+}
 
 /* =========================================================
    SPRINT 3 — SMART HOME SCREEN
@@ -414,25 +712,34 @@ function renderHomeReadiness(today){
 
 $("cook-tonight-button").onclick=()=>{
   const id=$("cook-tonight-button").dataset.recipeId;
-  if(id)openRecipe(id);
+  const todayEntry=homeDateEntry(homeCurrentDays,new Date());
+  if(id)startCookMode(id,todayEntry?.planned_servings||null,false);
 };
 
-function roundScaledQuantity(quantity,unit){
+function roundScaledQuantity(quantity,unit,ingredientName=""){
   if(quantity===null||quantity===undefined)return null;
   const n=Number(quantity);
   if(!Number.isFinite(n))return null;
-  const wholeUnits=["clove","cloves","tin","tins","packet","packets","bunch","slice","slices"];
-  if(wholeUnits.includes(String(unit||"").toLowerCase()))return Math.max(1,Math.round(n));
-  if(["g","ml"].includes(String(unit||"").toLowerCase())){
+
+  const u=String(unit||"").toLowerCase();
+  const name=String(ingredientName||"").toLowerCase();
+
+  const countableNames=/(onion|garlic|clove|carrot|celery|leek|capsicum|apple|banana|orange|lemon|lime|potato|tomato|egg|avocado|zucchini|cucumber|mushroom|bread roll|tortilla|fillet|cutlet)/;
+  const countableUnits=["clove","cloves","tin","tins","packet","packets","bunch","bunches","slice","slices","each","stick","sticks"];
+
+  if(countableUnits.includes(u)||(u===""&&countableNames.test(name)))return Math.max(1,Math.ceil(n));
+  if(u==="tbsp")return Math.max(.5,Math.round(n));
+  if(u==="tsp")return Math.max(.25,Math.round(n*2)/2);
+  if(["cup","cups"].includes(u))return Math.round(n*4)/4;
+
+  if(["g","ml"].includes(u)){
     if(n>=1000)return Math.round(n/50)*50;
     if(n>=100)return Math.round(n/25)*25;
-    return Math.round(n/5)*5;
+    return Math.max(1,Math.round(n/5)*5);
   }
-  if(["kg","l"].includes(String(unit||"").toLowerCase()))return Math.round(n*10)/10;
-  if(["tsp","tbsp","cup","cups"].includes(String(unit||"").toLowerCase()))return Math.round(n*4)/4;
+  if(["kg","l"].includes(u))return Math.round(n*10)/10;
   return Math.round(n*100)/100;
 }
-
 function shoppingMergeKey(row){
   return [
     row.shopping_destination||"woolworths",
@@ -475,7 +782,7 @@ async function generateShoppingLists(){
 
       for(const row of (rows||[]).filter(x=>x.recipe_id===day.recipe_id)){
         const destination=row.shopping_destination||"woolworths";
-        const scaled=row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit);
+        const scaled=row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name);
         const key=shoppingMergeKey(row);
 
         if(!merged.has(key)){
@@ -491,7 +798,7 @@ async function generateShoppingLists(){
         }else{
           const current=merged.get(key);
           if(current.quantity!==null&&scaled!==null){
-            current.quantity=roundScaledQuantity(Number(current.quantity)+Number(scaled),current.unit);
+            current.quantity=roundScaledQuantity(Number(current.quantity)+Number(scaled),current.unit,current.item_name);
           }else if(current.display_quantity&&row.display_quantity&&current.display_quantity!==row.display_quantity){
             current.notes=[current.notes,row.display_quantity].filter(Boolean).join("; ");
           }

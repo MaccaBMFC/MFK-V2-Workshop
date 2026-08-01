@@ -42,6 +42,16 @@
           <button id="plan-week-button" class="button primary large">✨ Plan My Week</button>
         </div>
 
+
+        <section id="resume-cooking-card" class="resume-cooking-card" hidden>
+          <div>
+            <p class="eyebrow">Cooking session</p>
+            <h2 id="resume-cooking-title">Resume cooking</h2>
+            <p id="resume-cooking-detail">Your last step is waiting.</p>
+          </div>
+          <button id="resume-cooking-button" class="button primary">Resume →</button>
+        </section>
+
         <section class="tonight-card">
           <div id="tonight-visual" class="tonight-visual">🍽️</div>
           <div class="tonight-copy">
@@ -240,8 +250,11 @@
           <button class="settings-item">
             <span>↗️</span><span><strong>Import & Export</strong><small>Back up your family kitchen data</small></span><b>Later</b>
           </button>
+          <button id="open-kitchen-analytics" class="settings-item">
+            <span>📊</span><span><strong>Kitchen Analytics</strong><small>Cooking history, favourites and family trends</small></span><b>Open ›</b>
+          </button>
           <button class="settings-item">
-            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 2.0 · Foundation</small></span><b>›</b>
+            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 1.2 · Kitchen Assistant</small></span><b>›</b>
           </button>
         </div>
       </div>
@@ -338,6 +351,109 @@
           <button id="meal-picker-apply" class="button primary" type="button">Add to Week</button>
         </div>
       </div>
+    </div>
+  </dialog>
+
+
+  <dialog id="cook-mode-dialog" class="cook-mode-dialog">
+    <div class="cook-mode-shell">
+      <header class="cook-mode-header">
+        <button id="cook-mode-exit" class="cook-icon-button" type="button" aria-label="Leave Cook Mode">×</button>
+        <div class="cook-title-block">
+          <p class="eyebrow light">Kitchen Assistant</p>
+          <h2 id="cook-mode-title">Recipe</h2>
+          <p id="cook-mode-subtitle"></p>
+        </div>
+        <span id="wake-lock-status" class="wake-lock-status">📱 Screen awake</span>
+      </header>
+
+      <div class="cook-progress-wrap">
+        <div class="cook-progress-copy">
+          <strong id="cook-step-label">Step 1 of 1</strong>
+          <span id="cook-progress-percent">0%</span>
+        </div>
+        <div class="cook-progress-track"><div id="cook-progress-bar"></div></div>
+      </div>
+
+      <main class="cook-step-stage">
+        <section id="cook-ingredients-panel" class="cook-side-panel">
+          <button id="toggle-cook-ingredients" class="cook-panel-toggle" type="button">🛒 Ingredients</button>
+          <div id="cook-scaled-ingredients" class="cook-scaled-ingredients" hidden></div>
+        </section>
+
+        <article id="cook-step-card" class="cook-step-card">
+          <div id="cook-step-number" class="cook-step-number">1</div>
+          <p id="cook-step-text">Cooking step</p>
+          <div id="cook-timer-suggestion" class="cook-timer-suggestion" hidden>
+            <span id="cook-timer-label">⏲ Timer available</span>
+            <button id="start-step-timer" class="button gold" type="button">Start Timer</button>
+          </div>
+        </article>
+
+        <section id="active-timer-card" class="active-timer-card" hidden>
+          <div>
+            <p class="eyebrow">Active timer</p>
+            <strong id="active-timer-display">00:00</strong>
+            <span id="active-timer-step"></span>
+          </div>
+          <button id="cancel-active-timer" class="button secondary" type="button">Cancel</button>
+        </section>
+      </main>
+
+      <footer class="cook-mode-footer">
+        <button id="cook-prev-step" class="button secondary" type="button">← Previous</button>
+        <button id="cook-next-step" class="button primary" type="button">Next →</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="cook-finish-dialog" class="cook-finish-dialog">
+    <div class="cook-finish-shell">
+      <div class="finish-emoji">🎉</div>
+      <p class="eyebrow">Dinner is ready</p>
+      <h2>Hope everyone enjoys it ❤️</h2>
+      <p>Anything worth remembering for next time?</p>
+
+      <div class="rating-picker" aria-label="Recipe rating">
+        <button type="button" data-rating="1">★</button>
+        <button type="button" data-rating="2">★</button>
+        <button type="button" data-rating="3">★</button>
+        <button type="button" data-rating="4">★</button>
+        <button type="button" data-rating="5">★</button>
+      </div>
+
+      <label class="finish-note-label">Cook note
+        <textarea id="cook-finish-note" rows="4" placeholder="Needed more garlic, kids loved it, cook five minutes longer…"></textarea>
+      </label>
+
+      <div class="finish-actions">
+        <button id="finish-without-note" class="button secondary" type="button">Back Home</button>
+        <button id="save-cook-finish" class="button primary" type="button">Save & Back Home</button>
+      </div>
+      <p id="cook-finish-message" class="form-message"></p>
+    </div>
+  </dialog>
+
+  <dialog id="kitchen-analytics-dialog" class="analytics-dialog">
+    <button class="dialog-close" data-close-dialog="kitchen-analytics-dialog">×</button>
+    <div class="analytics-shell">
+      <header>
+        <p class="eyebrow">MFK v1.2</p>
+        <h2>Kitchen Analytics</h2>
+        <p class="muted">Your family's cooking history, built one dinner at a time.</p>
+      </header>
+
+      <div id="analytics-metrics" class="analytics-metrics"></div>
+
+      <section class="analytics-section">
+        <h3>Most cooked</h3>
+        <div id="analytics-most-cooked" class="analytics-list"></div>
+      </section>
+
+      <section class="analytics-section">
+        <h3>Recently cooked</h3>
+        <div id="analytics-recent" class="analytics-list"></div>
+      </section>
     </div>
   </dialog>
 
