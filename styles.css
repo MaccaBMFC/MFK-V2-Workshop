@@ -247,3 +247,49 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .picker-filter-block{margin-top:12px}
   .meal-picker-recipe{min-height:70px}
 }
+
+
+/* ===== Sprint 2 Task 3: Shopping Engine ===== */
+.planner-heading-actions{display:flex;gap:9px;flex-wrap:wrap}
+.shopping-action-bar{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  margin-bottom:17px
+}
+.shopping-action-bar>div{display:flex;gap:9px;flex-wrap:wrap}
+.shopping-generation-status{margin:0;color:var(--muted);font-size:.88rem}
+.shopping-generation-status.success{color:var(--forest)}
+.shopping-tab{display:inline-flex;align-items:center;gap:7px}
+.shopping-tab b{
+  min-width:24px;height:24px;border-radius:999px;display:grid;place-items:center;
+  background:var(--sage);color:var(--forest);font-size:.7rem
+}
+.shopping-tab.active b{background:rgba(255,255,255,.18);color:white}
+.shopping-helper{font-size:.78rem;color:var(--muted);margin:8px 0 0}
+.shopping-group{margin-top:20px}
+.shopping-group-heading{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:0 4px 8px;border-bottom:1px solid var(--line)
+}
+.shopping-group-heading h3{font-size:1.15rem;margin:0}
+.shopping-group-heading span{color:var(--muted);font-size:.76rem}
+.shopping-item-row{
+  display:grid;grid-template-columns:30px 1fr auto;gap:11px;align-items:center;
+  padding:13px 5px;border-bottom:1px solid var(--line)
+}
+.shopping-item-row input[type="checkbox"]{width:22px;height:22px}
+.shopping-item-copy strong,.shopping-item-copy small{display:block}
+.shopping-item-copy small{color:var(--muted);font-size:.75rem;margin-top:2px}
+.shopping-item-copy.checked strong{text-decoration:line-through;color:var(--muted)}
+.shopping-source-pill{
+  border-radius:999px;padding:5px 8px;font-size:.66rem;font-weight:800;
+  background:var(--sage);color:var(--forest)
+}
+.shopping-source-pill.manual{background:#fff0d1;color:#815b20}
+.shopping-empty-group{padding:20px 6px;color:var(--muted);font-size:.88rem}
+@media(max-width:650px){
+  .planner-heading-actions{width:100%}
+  .planner-heading-actions .button{flex:1}
+  .shopping-action-bar{align-items:flex-start;flex-direction:column}
+  .shopping-action-bar>div{width:100%}
+  .shopping-action-bar .button{flex:1}
+}

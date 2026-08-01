@@ -90,6 +90,10 @@
                 <span class="summary-icon">🥕</span>
                 <span><strong>Fruit & Veg</strong><small><b id="fruit-count">0</b> items</small></span>
               </button>
+              <button class="summary-card" data-list="pantry">
+                <span class="summary-icon">🥫</span>
+                <span><strong>Pantry</strong><small><b id="pantry-count">0</b> items</small></span>
+              </button>
             </div>
           </section>
         </div>
@@ -104,7 +108,10 @@
             <h1>Plan your week</h1>
             <p class="lede">MFK plans from Saturday to Friday — the way your family actually shops and cooks.</p>
           </div>
-          <button id="planner-save-week" class="button primary">💾 Save Week</button>
+          <div class="planner-heading-actions">
+            <button id="planner-save-week" class="button secondary">💾 Save Week</button>
+            <button id="planner-generate-shopping" class="button primary">✨ Generate Shopping Lists</button>
+          </div>
         </div>
 
         <section class="planner-toolbar panel">
@@ -152,9 +159,18 @@
           </div>
         </div>
 
+        <div class="shopping-action-bar">
+          <div>
+            <button id="generate-shopping-lists" class="button primary">✨ Generate Lists</button>
+            <button id="reset-generated-lists" class="button secondary">↺ Reset Generated</button>
+          </div>
+          <p id="shopping-generation-status" class="shopping-generation-status"></p>
+        </div>
+
         <div class="shopping-tabs">
-          <button class="shopping-tab active" data-shopping-tab="woolworths">🛒 Woolworths</button>
-          <button class="shopping-tab" data-shopping-tab="fruit_veg">🥕 Fruit & Veg</button>
+          <button class="shopping-tab active" data-shopping-tab="woolworths">🛒 Woolworths <b id="tab-count-woolworths">0</b></button>
+          <button class="shopping-tab" data-shopping-tab="fruit_veg">🥕 Fruit & Veg <b id="tab-count-fruit_veg">0</b></button>
+          <button class="shopping-tab" data-shopping-tab="pantry">🥫 Pantry <b id="tab-count-pantry">0</b></button>
         </div>
 
         <section class="shopping-workspace">
@@ -164,6 +180,7 @@
             <input id="shopping-name" placeholder="Add an item…">
             <button id="add-shopping-item" class="button primary">Add</button>
           </div>
+          <p class="shopping-helper">Manual items stay safe when recipe lists are regenerated.</p>
 
           <div id="shopping-list-content" class="shopping-list-content">
             <div class="empty-state">

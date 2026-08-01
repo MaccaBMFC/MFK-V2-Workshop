@@ -112,25 +112,214 @@ document.querySelectorAll("[data-list]").forEach(b=>b.onclick=()=>{activeShoppin
 function getListId(destination){return shoppingLists.find(x=>x.destination===destination)?.id}
 function activeItems(){const listId=getListId(activeShopping);return shoppingItems.filter(x=>x.shopping_list_id===listId)}
 function renderShoppingCounts(){
-  const woolId=getListId("woolworths"),fruitId=getListId("fruit_veg");
-  $("woolies-count").textContent=shoppingItems.filter(x=>x.shopping_list_id===woolId&&!x.is_checked).length;
-  $("fruit-count").textContent=shoppingItems.filter(x=>x.shopping_list_id===fruitId&&!x.is_checked).length;
+  const woolId=getListId("woolworths"),fruitId=getListId("fruit_veg"),pantryId=getListId("pantry");
+  const woolCount=shoppingItems.filter(x=>x.shopping_list_id===woolId&&!x.is_checked).length;
+  const fruitCount=shoppingItems.filter(x=>x.shopping_list_id===fruitId&&!x.is_checked).length;
+  const pantryCount=shoppingItems.filter(x=>x.shopping_list_id===pantryId&&!x.is_checked).length;
+  $("woolies-count").textContent=woolCount;
+  $("fruit-count").textContent=fruitCount;
+  $("pantry-count").textContent=pantryCount;
+  $("tab-count-woolworths").textContent=woolCount;
+  $("tab-count-fruit_veg").textContent=fruitCount;
+  $("tab-count-pantry").textContent=pantryCount;
 }
 function renderShopping(){
   if(!currentUser){
-    $("shopping-list-content").innerHTML='<div class="empty-state"><span>🔐</span><h2>Sign in to use shopping</h2><p>Your lists are private to signed-in family accounts.</p></div>';return;
+    $("shopping-list-content").innerHTML='<div class="empty-state"><span>🔐</span><h2>Sign in to use shopping</h2><p>Your lists are private to signed-in family accounts.</p></div>';
+    return;
   }
+
   const list=activeItems();
-  $("shopping-list-content").innerHTML=list.length?list.map(x=>`
-    <label style="display:flex;gap:12px;align-items:center;padding:13px;border-bottom:1px solid var(--line)">
-      <input type="checkbox" data-shopping-check="${x.id}" ${x.is_checked?"checked":""} style="width:22px;height:22px">
-      <span style="${x.is_checked?"text-decoration:line-through;color:var(--muted)":""}">${esc([x.quantity,x.unit,x.item_name].filter(v=>v!==null&&v!=="").join(" "))}</span>
-    </label>`).join(""):'<div class="empty-state"><span>🧺</span><h2>No items yet</h2><p>Add items during the week, or generate them from the meal planner later.</p></div>';
+  const manual=list.filter(x=>x.source_type==="manual");
+  const generated=list.filter(x=>x.source_type==="meal_plan");
+
+  const renderGroup=(title,items,sourceClass)=>{
+    if(!items.length)return "";
+    return `<section class="shopping-group">
+      <div class="shopping-group-heading"><h3>${title}</h3><span>${items.length} item${items.length===1?"":"s"}</span></div>
+      ${items.map(x=>{
+        const quantity=[formatShoppingQuantity(x.quantity),x.display_quantity,x.unit].filter(Boolean).join(" ");
+        return `<label class="shopping-item-row">
+          <input type="checkbox" data-shopping-check="${x.id}" ${x.is_checked?"checked":""}>
+          <span class="shopping-item-copy ${x.is_checked?"checked":""}">
+            <strong>${esc([quantity,x.item_name].filter(Boolean).join(" "))}</strong>
+            ${x.notes?`<small>${esc(x.notes)}</small>`:""}
+          </span>
+          <span class="shopping-source-pill ${sourceClass}">${sourceClass==="manual"?"Manual":"Meal plan"}</span>
+        </label>`;
+      }).join("")}
+    </section>`;
+  };
+
+  $("shopping-list-content").innerHTML=
+    renderGroup("Added manually",manual,"manual")+
+    renderGroup("From this week's meals",generated,"generated")||
+    '<div class="empty-state"><span>🧺</span><h2>No items yet</h2><p>Add items manually, or generate them from the meal planner.</p></div>';
+
   document.querySelectorAll("[data-shopping-check]").forEach(c=>c.onchange=async()=>{
     const {error}=await db.from("shopping_items").update({is_checked:c.checked}).eq("id",c.dataset.shoppingCheck);
-    if(!error){const item=shoppingItems.find(x=>x.id===c.dataset.shoppingCheck);if(item)item.is_checked=c.checked;renderShopping();renderShoppingCounts()}
+    if(!error){
+      const item=shoppingItems.find(x=>x.id===c.dataset.shoppingCheck);
+      if(item)item.is_checked=c.checked;
+      renderShopping();renderShoppingCounts();
+    }
   });
 }
+
+function formatShoppingQuantity(value){
+  if(value===null||value===undefined||value==="")return "";
+  const n=Number(value);
+  if(!Number.isFinite(n))return String(value);
+  if(Number.isInteger(n))return String(n);
+  return String(Math.round(n*100)/100);
+}
+
+function roundScaledQuantity(quantity,unit){
+  if(quantity===null||quantity===undefined)return null;
+  const n=Number(quantity);
+  if(!Number.isFinite(n))return null;
+  const wholeUnits=["clove","cloves","tin","tins","packet","packets","bunch","slice","slices"];
+  if(wholeUnits.includes(String(unit||"").toLowerCase()))return Math.max(1,Math.round(n));
+  if(["g","ml"].includes(String(unit||"").toLowerCase())){
+    if(n>=1000)return Math.round(n/50)*50;
+    if(n>=100)return Math.round(n/25)*25;
+    return Math.round(n/5)*5;
+  }
+  if(["kg","l"].includes(String(unit||"").toLowerCase()))return Math.round(n*10)/10;
+  if(["tsp","tbsp","cup","cups"].includes(String(unit||"").toLowerCase()))return Math.round(n*4)/4;
+  return Math.round(n*100)/100;
+}
+
+function shoppingMergeKey(row){
+  return [
+    row.shopping_destination||"woolworths",
+    row.ingredient_id||row.ingredient_name?.toLowerCase(),
+    String(row.unit||"").toLowerCase()
+  ].join("|");
+}
+
+async function generateShoppingLists(){
+  if(!currentUser){showLogin();return}
+  if(!plannerPlan){
+    alert("Save the week before generating shopping lists.");
+    return;
+  }
+
+  const recipeDays=plannerDaysData.filter(x=>x.meal_type==="recipe"&&x.recipe_id);
+  if(!recipeDays.length){
+    alert("There are no recipe meals in this week.");
+    return;
+  }
+
+  $("shopping-generation-status").textContent="Reading recipes and building lists…";
+  $("shopping-generation-status").classList.remove("success");
+
+  try{
+    const recipeIds=[...new Set(recipeDays.map(x=>x.recipe_id))];
+    const {data:rows,error}=await db.from("recipe_ingredients_expanded")
+      .select("*")
+      .in("recipe_id",recipeIds)
+      .order("sort_order");
+    if(error)throw error;
+
+    const merged=new Map();
+
+    for(const day of recipeDays){
+      const recipe=recipes.find(r=>r.id===day.recipe_id);
+      const baseServings=Number(recipe?.base_servings||recipe?.serves||day.planned_servings||1);
+      const plannedServings=Number(day.planned_servings||baseServings||1);
+      const factor=baseServings>0?plannedServings/baseServings:1;
+
+      for(const row of (rows||[]).filter(x=>x.recipe_id===day.recipe_id)){
+        const destination=row.shopping_destination||"woolworths";
+        const scaled=row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit);
+        const key=shoppingMergeKey(row);
+
+        if(!merged.has(key)){
+          merged.set(key,{
+            ingredient_id:row.ingredient_id,
+            item_name:row.ingredient_name||"Ingredient",
+            quantity:scaled,
+            display_quantity:row.display_quantity||null,
+            unit:row.unit||null,
+            destination,
+            notes:null
+          });
+        }else{
+          const current=merged.get(key);
+          if(current.quantity!==null&&scaled!==null){
+            current.quantity=roundScaledQuantity(Number(current.quantity)+Number(scaled),current.unit);
+          }else if(current.display_quantity&&row.display_quantity&&current.display_quantity!==row.display_quantity){
+            current.notes=[current.notes,row.display_quantity].filter(Boolean).join("; ");
+          }
+        }
+      }
+    }
+
+    const {error:deleteError}=await db.from("shopping_items")
+      .delete()
+      .eq("source_type","meal_plan")
+      .eq("meal_plan_id",plannerPlan.id);
+    if(deleteError)throw deleteError;
+
+    const payload=[...merged.values()].map((x,index)=>({
+      shopping_list_id:getListId(x.destination)||getListId("woolworths"),
+      ingredient_id:x.ingredient_id||null,
+      item_name:x.item_name,
+      quantity:x.quantity,
+      display_quantity:x.display_quantity,
+      unit:x.unit,
+      source_type:"meal_plan",
+      meal_plan_id:plannerPlan.id,
+      notes:x.notes,
+      sort_order:index+1,
+      is_checked:false
+    }));
+
+    if(payload.length){
+      const {error:insertError}=await db.from("shopping_items").insert(payload);
+      if(insertError)throw insertError;
+    }
+
+    const {error:planError}=await db.from("meal_plans")
+      .update({shopping_generated_at:new Date().toISOString(),status:"planned"})
+      .eq("id",plannerPlan.id);
+    if(planError)throw planError;
+
+    await loadPrivateData();
+    $("shopping-generation-status").textContent=`Lists generated: ${payload.length} combined items.`;
+    $("shopping-generation-status").classList.add("success");
+  }catch(error){
+    $("shopping-generation-status").textContent=error.message||String(error);
+  }
+}
+
+async function resetGeneratedShopping(){
+  if(!currentUser){showLogin();return}
+  if(!plannerPlan){
+    alert("Open a saved week first.");
+    return;
+  }
+  if(!confirm("Clear the generated recipe items for this week? Manual items will remain."))return;
+
+  const {error}=await db.from("shopping_items")
+    .delete()
+    .eq("source_type","meal_plan")
+    .eq("meal_plan_id",plannerPlan.id);
+  if(error){alert(error.message);return}
+
+  await loadPrivateData();
+  $("shopping-generation-status").textContent="Generated recipe items cleared. Manual items remain.";
+  $("shopping-generation-status").classList.add("success");
+}
+
+$("generate-shopping-lists").onclick=generateShoppingLists;
+$("planner-generate-shopping").onclick=async()=>{
+  await plannerSaveWeek();
+  if(plannerPlan)await generateShoppingLists();
+};
+$("reset-generated-lists").onclick=resetGeneratedShopping;
+
 $("add-shopping-item").onclick=async()=>{
   if(!currentUser){showLogin();return}
   const name=$("shopping-name").value.trim();if(!name)return;
@@ -558,7 +747,10 @@ function plannerRenderRecipes(){
         .map(f=>f.recipe_id));
 
   const list=recipes.filter(r=>{
-    const searchMatch=  !q || String(r.title || "").toLowerCase().includes(q);
+    const searchMatch=!q||[
+      r.title,r.category,r.story,
+      ...(Array.isArray(r.ingredients)?r.ingredients:[])
+    ].join(" ").toLowerCase().includes(q);
 
     const categoryMatch=plannerPickerCategory==="All"||r.category===plannerPickerCategory;
     const memberMatch=plannerPickerMember==="All"||favouriteRecipeIds.has(r.id);
