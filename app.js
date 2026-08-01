@@ -223,16 +223,45 @@ function renderResumeCooking(){
   const saved=getSavedCookSession();
   const card=$("resume-cooking-card");
   if(!card)return;
-  if(!saved||saved.completed){card.hidden=true;return}
+
+  if(!saved||saved.completed){
+    card.hidden=true;
+    return;
+  }
+
   const recipe=recipes.find(r=>r.id===saved.recipeId);
-  if(!recipe){card.hidden=true;return}
+  const steps=managerLineArray(recipe?.method);
+
+  if(!recipe||!steps.length){
+    clearCookSession();
+    card.hidden=true;
+    return;
+  }
+
+  const stepIndex=Number(saved.stepIndex||0);
+
+  // Reaching the final instruction is no longer considered resumable.
+  if(stepIndex>=steps.length-1){
+    localStorage.removeItem(COOK_SESSION_KEY);
+    cookSession=null;
+    card.hidden=true;
+    return;
+  }
+
   card.hidden=false;
-  $("resume-cooking-title").textContent=`Resume ${recipe.title}`;
-  $("resume-cooking-detail").textContent=`Step ${Number(saved.stepIndex||0)+1} of ${managerLineArray(recipe.method).length}`;
+  $("resume-cooking-title").textContent="Resume Cooking";
+  $("resume-cooking-detail").textContent=`${recipe.title} · Step ${stepIndex+1} of ${steps.length}`;
 }
 $("resume-cooking-button").onclick=()=>{
   const saved=getSavedCookSession();
-  if(saved)startCookMode(saved.recipeId,saved.servings,true);
+  if(!saved)return renderResumeCooking();
+  const recipe=recipes.find(r=>r.id===saved.recipeId);
+  const steps=managerLineArray(recipe?.method);
+  if(!recipe||Number(saved.stepIndex||0)>=steps.length-1){
+    clearCookSession();
+    return;
+  }
+  startCookMode(saved.recipeId,saved.servings,true);
 };
 
 function scaledRecipeIngredients(recipeId,servings){
@@ -335,10 +364,51 @@ $("toggle-cook-ingredients").onclick=()=>{
   const panel=$("cook-scaled-ingredients");
   panel.hidden=!panel.hidden;
 };
-$("cook-mode-exit").onclick=async()=>{
+$("cook-mode-exit").onclick=()=>{
+  if(!cookSession){
+    $("cook-mode-dialog").close();
+    releaseCookWakeLock();
+    return;
+  }
+
+  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
+  const steps=managerLineArray(recipe?.method);
+
+  // On the final instruction, leaving means the cook is ready to finish.
+  if(steps.length&&cookSession.stepIndex>=steps.length-1){
+    openCookFinish();
+    return;
+  }
+
+  $("cook-exit-dialog").showModal();
+};
+
+$("cook-exit-cancel").onclick=()=>$("cook-exit-dialog").close();
+
+$("cook-resume-later").onclick=async()=>{
+  saveCookSession();
+  $("cook-exit-dialog").close();
   $("cook-mode-dialog").close();
   await releaseCookWakeLock();
   renderResumeCooking();
+};
+
+$("cook-finish-now").onclick=()=>{
+  $("cook-exit-dialog").close();
+  openCookFinish();
+};
+
+$("cook-stop-now").onclick=async()=>{
+  clearInterval(cookTimerInterval);
+  cookTimerInterval=null;
+  cookTimerEnd=null;
+  $("active-timer-card").hidden=true;
+  clearCookSession();
+  $("cook-exit-dialog").close();
+  $("cook-mode-dialog").close();
+  await releaseCookWakeLock();
+  setPage("today");
+  await refreshSmartHome();
 };
 
 async function requestCookWakeLock(){
@@ -395,6 +465,11 @@ $("cancel-active-timer").onclick=()=>{
 };
 
 function openCookFinish(){
+  if(cookSession){
+    cookSession.completed=true;
+    localStorage.removeItem(COOK_SESSION_KEY);
+  }
+  renderResumeCooking();
   $("cook-mode-dialog").close();
   releaseCookWakeLock();
   cookSelectedRating=0;

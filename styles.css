@@ -450,3 +450,26 @@ dialog{border:0;padding:0;background:var(--paper);box-shadow:0 35px 90px rgba(0,
   .analytics-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
   .analytics-metrics{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* ===== MFK v1.2.1 — Cooking Session Hotfix ===== */
+.cook-exit-dialog{width:min(520px,calc(100vw - 24px))}
+.cook-exit-shell{padding:30px;text-align:center}
+.cook-exit-shell h2{font-size:2.15rem;margin:5px 0}
+.cook-exit-actions{display:grid;gap:9px;margin:22px 0 14px}
+.cook-exit-choice{
+  width:100%;border:1px solid var(--line);background:white;border-radius:16px;
+  padding:14px;display:grid;grid-template-columns:38px 1fr;gap:11px;
+  align-items:center;text-align:left;color:var(--ink);cursor:pointer
+}
+.cook-exit-choice:hover{background:var(--sage)}
+.cook-exit-choice>span:first-child{font-size:1.45rem;text-align:center}
+.cook-exit-choice strong,.cook-exit-choice small{display:block}
+.cook-exit-choice small{color:var(--muted);margin-top:2px}
+.cook-exit-choice.danger{border-color:#e8c5c5;background:#fff7f7}
+.cook-exit-choice.danger:hover{background:#ffecec}
+.cook-exit-shell>.button{width:100%}
+@media(max-width:650px){
+  .cook-exit-dialog{width:100%;max-height:100dvh;border-radius:0}
+  .cook-exit-shell{padding:28px 18px}
+}
