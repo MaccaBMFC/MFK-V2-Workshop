@@ -1,14 +1,111 @@
 
 const cfg=window.MACCA_CONFIG||{};
 const configured=cfg.SUPABASE_URL&&!cfg.SUPABASE_URL.startsWith("PASTE_")&&cfg.SUPABASE_PUBLISHABLE_KEY&&!cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
-const db=configured?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+const db=configured?window.supabase.createClient(
+  cfg.SUPABASE_URL,
+  cfg.SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true,
+      storage:window.localStorage,
+      storageKey:"mfk-auth-v1",
+      flowType:"pkce"
+    }
+  }
+):null;
 const $=id=>document.getElementById(id);
-let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[],cookSession=null,cookWakeLock=null,cookTimerInterval=null,cookTimerEnd=null,cookSelectedRating=0,cookLogs=[];
+
+function ensurePantryDestinationOption(){
+  const template=$("manager-ingredient-template");
+  const templateSelect=template?.content?.querySelector?.("select.mi-shop");
+  if(templateSelect&&!templateSelect.querySelector('option[value="pantry"]')){
+    const option=document.createElement("option");
+    option.value="pantry";
+    option.textContent="🥫 Pantry / Staples";
+    templateSelect.appendChild(option);
+  }
+
+  document.querySelectorAll("select.mi-shop").forEach(select=>{
+    if(!select.querySelector('option[value="pantry"]')){
+      const option=document.createElement("option");
+      option.value="pantry";
+      option.textContent="🥫 Pantry / Staples";
+      select.appendChild(option);
+    }
+  });
+}
+
+function ensureAccountSyncPanel(){
+  if($("settings-account-email"))return;
+
+  const settingsList=document.querySelector("#page-settings .settings-list");
+  if(!settingsList)return;
+
+  const card=document.createElement("section");
+  card.className="settings-account-card";
+  card.innerHTML=`
+    <div class="settings-account-main">
+      <span class="settings-account-icon">👤</span>
+      <div>
+        <p class="eyebrow">Account & Sync</p>
+        <h2 id="settings-account-name">MFK account</h2>
+        <p id="settings-account-email" class="muted">Not signed in</p>
+      </div>
+    </div>
+    <div class="settings-account-status">
+      <span id="settings-sync-dot" class="sync-dot"></span>
+      <strong id="settings-sync-status">Checking session…</strong>
+    </div>
+    <div class="settings-account-actions">
+      <button id="settings-sign-in-button" class="button primary" type="button">Sign in</button>
+      <button id="settings-sign-out-button" class="button secondary" type="button" hidden>Sign out</button>
+      <button id="settings-clear-cache-button" class="button secondary" type="button">Refresh app cache</button>
+    </div>
+    <p class="settings-account-note">MFK keeps you signed in securely on this device until you choose Sign out.</p>
+  `;
+  settingsList.parentElement.insertBefore(card,settingsList);
+
+  $("settings-sign-in-button").onclick=showLogin;
+  $("settings-sign-out-button").onclick=signOutOfMFK;
+  $("settings-clear-cache-button").onclick=refreshMFKCache;
+}
+
+async function refreshMFKCache(){
+  if($("settings-sync-status"))$("settings-sync-status").textContent="Refreshing app cache…";
+
+  if("serviceWorker" in navigator){
+    const registrations=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(async registration=>{
+      await registration.update();
+      registration.waiting?.postMessage?.({type:"SKIP_WAITING"});
+    }));
+  }
+
+  if("caches" in window){
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>!key.includes("rc4")).map(key=>caches.delete(key)));
+  }
+
+  setTimeout(()=>location.reload(),400);
+}
+
+function hydrateRC4Interface(){
+  ensurePantryDestinationOption();
+  ensureAccountSyncPanel();
+}
+
+let recipes=[],categories=[],members=[],shoppingLists=[],shoppingItems=[],masterIngredients=[],structuredRows=[],recipeFavourites=[],activeCategory="All",activeShopping="woolworths",currentUser=null,managerCurrentRecipe=null,plannerWeekStart=null,plannerPlan=null,plannerDaysData=[],plannerEditingDate=null,plannerSelectedType="recipe",plannerSelectedRecipeId=null,plannerPickerCategory="All",plannerPickerMember="All",homeCurrentPlan=null,homeCurrentDays=[],cookSession=null,cookWakeLock=null,cookTimerInterval=null,cookTimerEnd=null,cookSelectedRating=0,cookLogs=[],activeCookSession=null,cookSessionSaveTimer=null;
 
 const safeArray=v=>Array.isArray(v)?v:[];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 
 function setPage(page){
+  if(page==="settings"){
+    hydrateRC4Interface();
+    applySession();
+  }
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.dataset.pageName===page));
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   window.scrollTo({top:0,behavior:"smooth"});
@@ -18,7 +115,22 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>setPage(b.data
 
 function showLogin(){if(!db){alert("Copy your working config.js into this V2 repository first.");return}$("login-dialog").showModal()}
 $("sign-in-button").onclick=showLogin;
-$("sign-out-button").onclick=async()=>{await db.auth.signOut();currentUser=null;applySession();await loadPrivateData()};
+
+$("settings-sign-in-button").onclick=showLogin;
+$("settings-sign-out-button").onclick=signOutOfMFK;
+$("settings-clear-cache-button").onclick=refreshMFKCache;
+
+async function signOutOfMFK(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  activeCookSession=null;
+  cookSession=null;
+  applySession();
+  await loadPrivateData();
+  await refreshSmartHome();
+}
+$("sign-out-button").onclick=signOutOfMFK;
 document.querySelectorAll("[data-close-dialog]").forEach(b=>b.onclick=()=>$(b.dataset.closeDialog).close());
 
 $("login-form").addEventListener("submit",async e=>{
@@ -28,17 +140,57 @@ $("login-form").addEventListener("submit",async e=>{
   currentUser=data.user;$("login-message").textContent="";$("login-dialog").close();applySession();await loadPrivateData();await plannerOpenWeek(plannerWeekStart||new Date());
 });
 function applySession(){
-  $("sign-in-button").hidden=!!currentUser;$("sign-out-button").hidden=!currentUser;
+  ensureAccountSyncPanel();
+  const signedIn=!!currentUser;
+  $("sign-in-button").hidden=signedIn;
+  $("sign-out-button").hidden=!signedIn;
   $("user-label").textContent=currentUser?.email||"";
+
+  if($("settings-account-email")){
+    $("settings-account-email").textContent=currentUser?.email||"Not signed in";
+    $("settings-account-name").textContent=signedIn?"MFK connected":"MFK account";
+    $("settings-sync-status").textContent=signedIn?"Cloud sync connected":"Sign in to sync planning, shopping and cooking";
+    $("settings-sync-dot").classList.toggle("connected",signedIn);
+    $("settings-sync-dot").classList.toggle("signed-out",!signedIn);
+    $("settings-sign-in-button").hidden=signedIn;
+    $("settings-sign-out-button").hidden=!signedIn;
+  }
 }
 
 async function init(){
+  hydrateRC4Interface();
   const requested=location.hash.replace("#","")||"today";
   if(["today","planner","recipes","shopping","settings"].includes(requested))setPage(requested);
-  if(!db){$("recipe-status").hidden=false;$("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";return}
-  const {data:{session}}=await db.auth.getSession();currentUser=session?.user||null;applySession();
+  if(!db){
+    $("recipe-status").hidden=false;
+    $("recipe-status").textContent="Supabase is not connected. Copy your existing config.js into this repository.";
+    return;
+  }
+
+  const {data:{session},error}=await db.auth.getSession();
+  if(error)console.warn("MFK session restore:",error);
+  currentUser=session?.user||null;
+  applySession();
+
   await Promise.all([loadPublicData(),loadPrivateData()]);
-  plannerSetWeek(new Date());await plannerOpenWeek(plannerWeekStart);await refreshSmartHome();
+  plannerSetWeek(new Date());
+  await plannerOpenWeek(plannerWeekStart);
+  await refreshSmartHome();
+
+  db.auth.onAuthStateChange((event,nextSession)=>{
+    window.setTimeout(async()=>{
+      const nextUser=nextSession?.user||null;
+      const userChanged=nextUser?.id!==currentUser?.id;
+      currentUser=nextUser;
+      applySession();
+
+      if(["SIGNED_IN","SIGNED_OUT","USER_UPDATED"].includes(event)||userChanged){
+        await loadPrivateData();
+        await plannerOpenWeek(plannerWeekStart||new Date());
+        await refreshSmartHome();
+      }
+    },0);
+  });
 }
 async function loadPublicData(){
   const [r,c,m,i,ri,rf]=await Promise.all([
@@ -54,7 +206,7 @@ async function loadPublicData(){
   recipes=r.data||[];categories=c.data||[];members=m.data||[];
   masterIngredients=i.data||[];structuredRows=ri.data||[];recipeFavourites=rf.data||[];
   $("settings-category-count").textContent=categories.length;$("settings-member-count").textContent=members.length;
-  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();renderResumeCooking();
+  renderFilters();renderRecipes();renderManagerReferenceData();renderManagerLibrary();
 }
 async function loadPrivateData(){
   if(!currentUser){
@@ -65,7 +217,7 @@ async function loadPrivateData(){
     db.from("shopping_items").select("*").order("sort_order").order("created_at")
   ]);
   if(l.error||i.error){console.error(l.error||i.error);return}
-  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();await loadCookLogs();refreshSmartHome();renderResumeCooking();
+  shoppingLists=l.data||[];shoppingItems=i.data||[];renderShopping();renderShoppingCounts();await Promise.all([loadCookLogs(),loadActiveCookSession()]);refreshSmartHome();
 }
 function renderFilters(){
   $("category-filters").innerHTML=[
@@ -142,7 +294,7 @@ function renderShopping(){
     return `<section class="shopping-group">
       <div class="shopping-group-heading"><h3>${title}</h3><span>${items.length} item${items.length===1?"":"s"}</span></div>
       ${items.map(x=>{
-        const quantity=[formatShoppingQuantity(x.quantity),x.display_quantity,x.unit].filter(Boolean).join(" ");
+        const quantity=[formatShoppingQuantity(x.quantity,x.unit),x.display_quantity,displayShoppingUnit(x.unit,x.quantity)].filter(Boolean).join(" ");
         return `<div class="shopping-item-row ${sourceClass==="manual"?"manual-row":""}">
           <input type="checkbox" data-shopping-check="${x.id}" ${x.is_checked?"checked":""}>
           <span class="shopping-item-copy ${x.is_checked?"checked":""}">
@@ -180,59 +332,72 @@ function renderShopping(){
   });
 }
 
-function formatShoppingQuantity(value){
+function fractionGlyph(value){
+  const rounded=Math.round(Number(value)*4)/4;
+  const whole=Math.floor(rounded);
+  const fraction=Math.round((rounded-whole)*4);
+  const glyph={1:"¼",2:"½",3:"¾"}[fraction]||"";
+  return `${whole||""}${glyph}`||"0";
+}
+function formatShoppingQuantity(value,unit=""){
   if(value===null||value===undefined||value==="")return "";
   const n=Number(value);
   if(!Number.isFinite(n))return String(value);
+
+  const u=normaliseShoppingUnit(unit);
+  if(["cup","tbsp","tsp"].includes(u))return fractionGlyph(n);
   if(Number.isInteger(n))return String(n);
-  return String(Math.round(n*100)/100);
+  return String(Math.round(n*100)/100).replace(/\.0+$/,"");
 }
 
 
 
 /* =========================================================
-   MFK V1.2 — KITCHEN ASSISTANT
+   MFK v1.3.0 RC1 — COOKING INTELLIGENCE
 ========================================================= */
-
-const COOK_SESSION_KEY="mfk_active_cook_session_v12";
 
 async function loadCookLogs(){
   if(!currentUser){cookLogs=[];return}
   const {data,error}=await db.from("recipe_cook_logs")
-    .select("*")
-    .order("cooked_on",{ascending:false})
-    .order("created_at",{ascending:false});
+    .select("*").order("cooked_on",{ascending:false}).order("created_at",{ascending:false});
   if(error){console.error(error);cookLogs=[];return}
   cookLogs=data||[];
 }
 
-function getSavedCookSession(){
-  try{return JSON.parse(localStorage.getItem(COOK_SESSION_KEY)||"null")}catch{return null}
-}
-function saveCookSession(){
-  if(!cookSession)return;
-  localStorage.setItem(COOK_SESSION_KEY,JSON.stringify(cookSession));
+async function loadActiveCookSession(){
+  if(!currentUser){activeCookSession=null;renderResumeCooking();return}
+  const {data,error}=await db.from("active_cook_sessions")
+    .select("*").eq("auth_user_id",currentUser.id).maybeSingle();
+  if(error){console.error("Active cooking session:",error);activeCookSession=null}
+  else activeCookSession=data||null;
   renderResumeCooking();
 }
-function clearCookSession(){
-  localStorage.removeItem(COOK_SESSION_KEY);
-  cookSession=null;
-  renderResumeCooking();
+
+function recipeSteps(recipeId){
+  return managerLineArray(recipes.find(r=>r.id===recipeId)?.method);
 }
+
 function renderResumeCooking(){
-  const saved=getSavedCookSession();
   const card=$("resume-cooking-card");
   if(!card)return;
-  if(!saved||saved.completed){card.hidden=true;return}
-  const recipe=recipes.find(r=>r.id===saved.recipeId);
-  if(!recipe){card.hidden=true;return}
+  if(!currentUser||!activeCookSession||activeCookSession.status==="completed"){
+    card.hidden=true;return;
+  }
+  const recipe=recipes.find(r=>r.id===activeCookSession.recipe_id);
+  const steps=recipeSteps(activeCookSession.recipe_id);
+  if(!recipe||!steps.length){card.hidden=true;return}
+  const step=Math.min(Number(activeCookSession.current_step||0)+1,steps.length);
+  const started=new Date(activeCookSession.started_at);
+  const stale=started.toDateString()!==new Date().toDateString();
   card.hidden=false;
+  card.classList.toggle("active-session-stale",stale);
   $("resume-cooking-title").textContent=`Resume ${recipe.title}`;
-  $("resume-cooking-detail").textContent=`Step ${Number(saved.stepIndex||0)+1} of ${managerLineArray(recipe.method).length}`;
+  $("resume-cooking-detail").textContent=`Step ${step} of ${steps.length}${stale?" · Started earlier":""}`;
 }
-$("resume-cooking-button").onclick=()=>{
-  const saved=getSavedCookSession();
-  if(saved)startCookMode(saved.recipeId,saved.servings,true);
+
+$("resume-cooking-button").onclick=async()=>{
+  if(!activeCookSession)return loadActiveCookSession();
+  await startCookMode(activeCookSession.recipe_id,activeCookSession.servings,true);
 };
 
 function scaledRecipeIngredients(recipeId,servings){
@@ -240,237 +405,178 @@ function scaledRecipeIngredients(recipeId,servings){
   const base=Number(recipe?.base_servings||recipe?.serves||servings||1);
   const factor=base>0?Number(servings||base)/base:1;
   return structuredRows.filter(x=>x.recipe_id===recipeId).map(row=>({
-    ...row,
-    scaledQuantity:row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name)
+    ...row,scaledQuantity:row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name)
   }));
 }
 
-async function startCookMode(recipeId,servings=null,resume=false){
-  const recipe=recipes.find(r=>r.id===recipeId);
-  if(!recipe)return;
-
-  const saved=getSavedCookSession();
-  const steps=managerLineArray(recipe.method);
-  const effectiveServings=Number(servings||saved?.servings||recipe.base_servings||recipe.serves||1);
-
-  cookSession={
-    recipeId,
-    servings:effectiveServings,
-    stepIndex:resume&&saved?.recipeId===recipeId?Number(saved.stepIndex||0):0,
-    startedAt:resume&&saved?.recipeId===recipeId?saved.startedAt:new Date().toISOString(),
-    completed:false
+async function createOrReplaceCookSession(recipeId,servings,mealPlanDayId=null){
+  if(!currentUser)throw new Error("Sign in before starting Cook Mode.");
+  const payload={
+    auth_user_id:currentUser.id,recipe_id:recipeId,meal_plan_day_id:mealPlanDayId,
+    servings:Number(servings||1),current_step:0,status:"active",started_at:new Date().toISOString(),last_activity_at:new Date().toISOString()
   };
+  const {data,error}=await db.from("active_cook_sessions").upsert(payload,{onConflict:"auth_user_id"}).select().single();
+  if(error)throw error;
+  activeCookSession=data;return data;
+}
 
-  $("cook-mode-title").textContent=recipe.title;
-  $("cook-mode-subtitle").textContent=`Cooking for ${effectiveServings} · ${recipe.prep||"—"} prep · ${recipe.cook||"—"} cook`;
-  renderCookIngredients();
-  renderCookStep();
-  saveCookSession();
-  $("cook-mode-dialog").showModal();
-  await requestCookWakeLock();
-  try{await screen.orientation?.lock?.("portrait")}catch{}
+async function persistCookStep(immediate=false){
+  if(!cookSession||!currentUser)return;
+  const save=async()=>{
+    const {data,error}=await db.from("active_cook_sessions").update({
+      current_step:cookSession.stepIndex,status:"active",last_activity_at:new Date().toISOString()
+    }).eq("auth_user_id",currentUser.id).select().maybeSingle();
+    if(error)console.error("Could not save cooking step:",error);
+    else if(data)activeCookSession=data;
+  };
+  clearTimeout(cookSessionSaveTimer);
+  if(immediate)await save(); else cookSessionSaveTimer=setTimeout(save,250);
+}
+
+async function deleteActiveCookSession(){
+  clearTimeout(cookSessionSaveTimer);
+  if(currentUser){
+    const {error}=await db.from("active_cook_sessions").delete().eq("auth_user_id",currentUser.id);
+    if(error)throw error;
+  }
+  activeCookSession=null;cookSession=null;renderResumeCooking();
+}
+
+async function startCookMode(recipeId,servings=null,resume=false){
+  const recipe=recipes.find(r=>r.id===recipeId);if(!recipe)return false;
+  const steps=recipeSteps(recipeId);if(!steps.length){alert("This recipe has no method steps yet.");return false}
+  try{
+    if(!resume&&activeCookSession&&activeCookSession.recipe_id!==recipeId){
+      const oldRecipe=recipes.find(r=>r.id===activeCookSession.recipe_id);
+      if(!confirm(`Replace your active ${oldRecipe?.title||"cooking"} session with ${recipe.title}?`))return false;
+    }
+    let session=activeCookSession;
+    if(!resume||!session||session.recipe_id!==recipeId){
+      const todayEntry=homeDateEntry(homeCurrentDays,new Date());
+      session=await createOrReplaceCookSession(recipeId,Number(servings||recipe.base_servings||recipe.serves||1),todayEntry?.id||null);
+    }else{
+      const {data,error}=await db.from("active_cook_sessions").update({status:"active",last_activity_at:new Date().toISOString()})
+        .eq("auth_user_id",currentUser.id).select().single();
+      if(error)throw error;session=data;activeCookSession=data;
+    }
+    cookSession={
+      recipeId,servings:Number(session.servings||servings||recipe.base_servings||recipe.serves||1),
+      stepIndex:resume?Number(session.current_step||0):0,startedAt:session.started_at,sessionId:session.id,completed:false
+    };
+    $("resume-cooking-card").hidden=true;
+    $("cook-exit-overlay").hidden=true;$("cook-finish-overlay").hidden=true;
+    $("cook-mode-title").textContent=recipe.title;
+    $("cook-mode-subtitle").textContent=`Cooking for ${cookSession.servings} · ${recipe.prep||"—"} prep · ${recipe.cook||"—"} cook`;
+    renderCookIngredients();renderCookStep();
+    if(!$("cook-mode-dialog").open)$("cook-mode-dialog").showModal();
+    await requestCookWakeLock();try{await screen.orientation?.lock?.("portrait")}catch{}
+    return true;
+  }catch(error){alert(error.message||String(error));await loadActiveCookSession();return false}
 }
 
 function renderCookIngredients(){
   if(!cookSession)return;
   const rows=scaledRecipeIngredients(cookSession.recipeId,cookSession.servings);
-  $("cook-scaled-ingredients").innerHTML=rows.length
-    ? `<ul>${rows.map(x=>{
-        const qty=x.scaledQuantity??x.display_quantity??"";
-        return `<li>${esc([qty,x.unit,x.ingredient_name].filter(v=>v!==null&&v!=="").join(" "))}</li>`;
-      }).join("")}</ul>`
-    : '<p class="muted">Structured ingredients are not available for this recipe yet.</p>';
+  $("cook-scaled-ingredients").innerHTML=rows.length?`<ul>${rows.map(x=>{
+    const qty=x.scaledQuantity??x.display_quantity??"";
+    return `<li>${esc([qty,x.unit,x.ingredient_name].filter(v=>v!==null&&v!=="").join(" "))}</li>`;
+  }).join("")}</ul>`:'<p class="muted">Structured ingredients are not available for this recipe yet.</p>';
 }
 
 function renderCookStep(){
   if(!cookSession)return;
-  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
-  const steps=managerLineArray(recipe?.method);
-  if(!steps.length)return;
-
+  const steps=recipeSteps(cookSession.recipeId);if(!steps.length)return;
   cookSession.stepIndex=Math.min(Math.max(0,cookSession.stepIndex),steps.length-1);
-  const step=steps[cookSession.stepIndex];
-  const number=cookSession.stepIndex+1;
-  const percent=Math.round(number/steps.length*100);
-
-  $("cook-step-label").textContent=`Step ${number} of ${steps.length}`;
-  $("cook-progress-percent").textContent=`${percent}%`;
-  $("cook-progress-bar").style.width=`${percent}%`;
-  $("cook-step-number").textContent=number;
-  $("cook-step-text").textContent=step;
-  $("cook-prev-step").disabled=cookSession.stepIndex===0;
-  $("cook-next-step").textContent=cookSession.stepIndex===steps.length-1?"Finish Cooking 🎉":"Next →";
-
-  const timer=detectTimerFromStep(step);
-  $("cook-timer-suggestion").hidden=!timer;
-  if(timer){
-    $("cook-timer-label").textContent=`⏲ ${timer.label}`;
-    $("start-step-timer").dataset.seconds=timer.seconds;
-    $("start-step-timer").dataset.label=timer.label;
-  }
-  saveCookSession();
+  const step=steps[cookSession.stepIndex],number=cookSession.stepIndex+1,percent=Math.round(number/steps.length*100);
+  $("cook-step-label").textContent=`Step ${number} of ${steps.length}`;$("cook-progress-percent").textContent=`${percent}%`;
+  $("cook-progress-bar").style.width=`${percent}%`;$("cook-step-number").textContent=number;$("cook-step-text").textContent=step;
+  $("cook-prev-step").disabled=cookSession.stepIndex===0;$("cook-next-step").textContent=cookSession.stepIndex===steps.length-1?"Finish Cooking 🎉":"Next →";
+  const timer=detectTimerFromStep(step);$("cook-timer-suggestion").hidden=!timer;
+  if(timer){$("cook-timer-label").textContent=`⏲ ${timer.label}`;$("start-step-timer").dataset.seconds=timer.seconds;$("start-step-timer").dataset.label=timer.label}
+  persistCookStep();
 }
 
 function detectTimerFromStep(text){
-  const value=String(text||"");
-  const match=value.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i);
-  if(!match)return null;
-  const amount=Number(match[1]);
-  const unit=match[2].toLowerCase();
-  let seconds=amount;
-  if(unit.startsWith("min"))seconds*=60;
-  if(unit.startsWith("hour")||unit.startsWith("hr"))seconds*=3600;
+  const match=String(text||"").match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i);if(!match)return null;
+  const amount=Number(match[1]),unit=match[2].toLowerCase();let seconds=amount;
+  if(unit.startsWith("min"))seconds*=60;if(unit.startsWith("hour")||unit.startsWith("hr"))seconds*=3600;
   return {seconds:Math.round(seconds),label:`${match[1]} ${match[2]}`};
 }
 
 $("cook-prev-step").onclick=()=>{if(cookSession?.stepIndex>0){cookSession.stepIndex--;renderCookStep()}};
 $("cook-next-step").onclick=()=>{
-  if(!cookSession)return;
-  const recipe=recipes.find(r=>r.id===cookSession.recipeId);
-  const steps=managerLineArray(recipe?.method);
-  if(cookSession.stepIndex>=steps.length-1){openCookFinish();return}
+  if(!cookSession)return;const steps=recipeSteps(cookSession.recipeId);
+  if(cookSession.stepIndex>=steps.length-1){showCookFinishOverlay();return}
   cookSession.stepIndex++;renderCookStep();
 };
-$("toggle-cook-ingredients").onclick=()=>{
-  const panel=$("cook-scaled-ingredients");
-  panel.hidden=!panel.hidden;
+$("toggle-cook-ingredients").onclick=()=>{const panel=$("cook-scaled-ingredients");panel.hidden=!panel.hidden};
+$("cook-mode-exit").onclick=async()=>{await persistCookStep(true);$("cook-exit-overlay").hidden=false};
+$("cook-exit-cancel").onclick=()=>{$("cook-exit-overlay").hidden=true};
+$("cook-resume-later").onclick=async()=>{
+  try{
+    await persistCookStep(true);
+    const {data,error}=await db.from("active_cook_sessions").update({status:"paused",last_activity_at:new Date().toISOString()})
+      .eq("auth_user_id",currentUser.id).select().single();if(error)throw error;activeCookSession=data;
+    $("cook-exit-overlay").hidden=true;$("cook-mode-dialog").close();await releaseCookWakeLock();setPage("today");renderResumeCooking();await refreshSmartHome();
+  }catch(error){alert(error.message||String(error))}
 };
-$("cook-mode-exit").onclick=async()=>{
-  $("cook-mode-dialog").close();
-  await releaseCookWakeLock();
-  renderResumeCooking();
+$("cook-finish-now").onclick=()=>{showCookFinishOverlay()};
+$("cook-stop-now").onclick=async()=>{
+  try{
+    clearInterval(cookTimerInterval);cookTimerInterval=null;cookTimerEnd=null;$("active-timer-card").hidden=true;
+    await deleteActiveCookSession();$("cook-exit-overlay").hidden=true;$("cook-mode-dialog").close();await releaseCookWakeLock();setPage("today");await refreshSmartHome();
+  }catch(error){alert(error.message||String(error))}
 };
 
 async function requestCookWakeLock(){
-  if(!("wakeLock" in navigator)){
-    $("wake-lock-status").textContent="📱 Keep screen awake unavailable";
-    return;
-  }
-  try{
-    cookWakeLock=await navigator.wakeLock.request("screen");
-    $("wake-lock-status").textContent="📱 Screen staying awake";
-    cookWakeLock.addEventListener("release",()=>{$("wake-lock-status").textContent="📱 Screen awake released"});
-  }catch{
-    $("wake-lock-status").textContent="📱 Keep screen awake unavailable";
-  }
+  if(!("wakeLock" in navigator)){ $("wake-lock-status").textContent="📱 Keep screen awake unavailable";return }
+  try{cookWakeLock=await navigator.wakeLock.request("screen");$("wake-lock-status").textContent="📱 Screen staying awake";
+    cookWakeLock.addEventListener("release",()=>{$("wake-lock-status").textContent="📱 Screen awake released"})}
+  catch{$("wake-lock-status").textContent="📱 Keep screen awake unavailable"}
 }
-async function releaseCookWakeLock(){
-  try{await cookWakeLock?.release()}catch{}
-  cookWakeLock=null;
-  try{screen.orientation?.unlock?.()}catch{}
-}
-document.addEventListener("visibilitychange",async()=>{
-  if(document.visibilityState==="visible"&&$("cook-mode-dialog")?.open&&!cookWakeLock)await requestCookWakeLock();
-});
+async function releaseCookWakeLock(){try{await cookWakeLock?.release()}catch{}cookWakeLock=null;try{screen.orientation?.unlock?.()}catch{}}
+document.addEventListener("visibilitychange",async()=>{if(document.visibilityState==="visible"&&$("cook-mode-dialog")?.open&&!cookWakeLock)await requestCookWakeLock()});
 
-$("start-step-timer").onclick=()=>{
-  const seconds=Number($("start-step-timer").dataset.seconds||0);
-  if(seconds>0)startCookTimer(seconds,$("start-step-timer").dataset.label);
-};
-function startCookTimer(seconds,label){
-  clearInterval(cookTimerInterval);
-  cookTimerEnd=Date.now()+seconds*1000;
-  $("active-timer-card").hidden=false;
-  $("active-timer-step").textContent=label||"Cooking timer";
-  updateCookTimer();
-  cookTimerInterval=setInterval(updateCookTimer,1000);
-}
+$("start-step-timer").onclick=()=>{const seconds=Number($("start-step-timer").dataset.seconds||0);if(seconds>0)startCookTimer(seconds,$("start-step-timer").dataset.label)};
+function startCookTimer(seconds,label){clearInterval(cookTimerInterval);cookTimerEnd=Date.now()+seconds*1000;$("active-timer-card").hidden=false;$("active-timer-step").textContent=label||"Cooking timer";updateCookTimer();cookTimerInterval=setInterval(updateCookTimer,1000)}
 function updateCookTimer(){
-  const remaining=Math.max(0,Math.ceil((cookTimerEnd-Date.now())/1000));
-  const mins=Math.floor(remaining/60),secs=remaining%60;
+  const remaining=Math.max(0,Math.ceil((cookTimerEnd-Date.now())/1000)),mins=Math.floor(remaining/60),secs=remaining%60;
   $("active-timer-display").textContent=`${String(mins).padStart(2,"0")}:${String(secs).padStart(2,"0")}`;
-  if(remaining<=0){
-    clearInterval(cookTimerInterval);cookTimerInterval=null;
-    $("active-timer-display").textContent="DONE";
-    try{navigator.vibrate?.([250,150,250,150,500])}catch{}
-    if("Notification" in window&&Notification.permission==="granted"){
-      new Notification("MFK Timer",{body:"Your cooking timer is finished."});
-    }
-    alert("⏲️ Timer finished!");
-  }
+  if(remaining<=0){clearInterval(cookTimerInterval);cookTimerInterval=null;$("active-timer-display").textContent="DONE";try{navigator.vibrate?.([250,150,250,150,500])}catch{};alert("⏲️ Timer finished!")}
 }
-$("cancel-active-timer").onclick=()=>{
-  clearInterval(cookTimerInterval);cookTimerInterval=null;cookTimerEnd=null;
-  $("active-timer-card").hidden=true;
-};
+$("cancel-active-timer").onclick=()=>{clearInterval(cookTimerInterval);cookTimerInterval=null;cookTimerEnd=null;$("active-timer-card").hidden=true};
 
-function openCookFinish(){
-  $("cook-mode-dialog").close();
-  releaseCookWakeLock();
-  cookSelectedRating=0;
-  $("cook-finish-note").value="";
-  $("cook-finish-message").textContent="";
-  renderRatingPicker();
-  $("cook-finish-dialog").showModal();
+function showCookFinishOverlay(){
+  if(!cookSession)return;$("cook-exit-overlay").hidden=true;$("cook-finish-overlay").hidden=false;
+  cookSelectedRating=0;$("session-finish-note").value="";$("session-finish-message").textContent="";renderSessionRating();
 }
-function renderRatingPicker(){
-  document.querySelectorAll("[data-rating]").forEach(b=>b.classList.toggle("active",Number(b.dataset.rating)<=cookSelectedRating));
-}
-document.querySelectorAll("[data-rating]").forEach(b=>b.onclick=()=>{cookSelectedRating=Number(b.dataset.rating);renderRatingPicker()});
+function renderSessionRating(){document.querySelectorAll("[data-session-rating]").forEach(b=>b.classList.toggle("active",Number(b.dataset.sessionRating)<=cookSelectedRating))}
+document.querySelectorAll("[data-session-rating]").forEach(b=>b.onclick=()=>{cookSelectedRating=Number(b.dataset.sessionRating);renderSessionRating()});
 
-async function saveCookCompletion(saveNote=true){
-  if(!cookSession)return finishCookReturnHome();
-  $("cook-finish-message").textContent="Saving your cook…";
-  const payload={
-    recipe_id:cookSession.recipeId,
-    cooked_on:plannerIso(new Date()),
-    servings_cooked:cookSession.servings||null,
-    notes:saveNote?($("cook-finish-note").value.trim()||null):null,
-    rating:cookSelectedRating||null
-  };
-  const {error}=await db.from("recipe_cook_logs").insert(payload);
-  if(error){$("cook-finish-message").textContent=error.message;return}
-  await loadCookLogs();
-  finishCookReturnHome();
+async function completeCook(saveNote=true){
+  if(!cookSession)return;
+  $("session-finish-message").textContent="Saving your cook…";
+  try{
+    const payload={recipe_id:cookSession.recipeId,cooked_on:plannerIso(new Date()),servings_cooked:cookSession.servings||null,
+      notes:saveNote?($("session-finish-note").value.trim()||null):null,rating:cookSelectedRating||null};
+    const {error}=await db.from("recipe_cook_logs").insert(payload);if(error)throw error;
+    await deleteActiveCookSession();await loadCookLogs();clearInterval(cookTimerInterval);cookTimerInterval=null;cookTimerEnd=null;
+    $("active-timer-card").hidden=true;$("cook-finish-overlay").hidden=true;$("cook-mode-dialog").close();await releaseCookWakeLock();setPage("today");await refreshSmartHome();
+  }catch(error){$("session-finish-message").textContent=error.message||String(error)}
 }
-function finishCookReturnHome(){
-  clearCookSession();
-  $("cook-finish-dialog").close();
-  setPage("today");
-  refreshSmartHome();
-}
-$("save-cook-finish").onclick=()=>saveCookCompletion(true);
-$("finish-without-note").onclick=()=>saveCookCompletion(false);
+$("session-finish-save").onclick=()=>completeCook(true);$("session-finish-home").onclick=()=>completeCook(false);
 
-async function openKitchenAnalytics(){
-  if(!currentUser){showLogin();return}
-  await loadCookLogs();
-  renderKitchenAnalytics();
-  $("kitchen-analytics-dialog").showModal();
-}
+async function openKitchenAnalytics(){if(!currentUser){showLogin();return}await loadCookLogs();renderKitchenAnalytics();$("kitchen-analytics-dialog").showModal()}
 $("open-kitchen-analytics").onclick=openKitchenAnalytics;
-
 function renderKitchenAnalytics(){
-  const total=cookLogs.length;
-  const thisMonth=cookLogs.filter(x=>{
-    const d=new Date(`${x.cooked_on}T00:00:00`);
-    const now=new Date();
-    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-  }).length;
-  const rated=cookLogs.filter(x=>Number(x.rating)>0);
-  const avgRating=rated.length?(rated.reduce((a,x)=>a+Number(x.rating),0)/rated.length).toFixed(1):"—";
+  const total=cookLogs.length,thisMonth=cookLogs.filter(x=>{const d=new Date(`${x.cooked_on}T00:00:00`),now=new Date();return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()}).length;
+  const rated=cookLogs.filter(x=>Number(x.rating)>0),avgRating=rated.length?(rated.reduce((a,x)=>a+Number(x.rating),0)/rated.length).toFixed(1):"—";
   const avgServes=total?(cookLogs.reduce((a,x)=>a+Number(x.servings_cooked||0),0)/total).toFixed(1):"—";
-
-  $("analytics-metrics").innerHTML=[
-    ["Meals cooked",total],
-    ["This month",thisMonth],
-    ["Average rating",avgRating],
-    ["Average serves",avgServes]
-  ].map(([label,value])=>`<div class="analytics-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join("");
-
-  const counts=new Map();
-  cookLogs.forEach(log=>counts.set(log.recipe_id,(counts.get(log.recipe_id)||0)+1));
+  $("analytics-metrics").innerHTML=[["Meals cooked",total],["This month",thisMonth],["Average rating",avgRating],["Average serves",avgServes]].map(([label,value])=>`<div class="analytics-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join("");
+  const counts=new Map();cookLogs.forEach(log=>counts.set(log.recipe_id,(counts.get(log.recipe_id)||0)+1));
   const most=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
-  $("analytics-most-cooked").innerHTML=most.length?most.map(([id,count],index)=>{
-    const r=recipes.find(x=>x.id===id);
-    return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${index===0?"Family champion":"Cooked regularly"}</small></span><b>${count}×</b></div>`;
-  }).join(""):'<p class="muted">Finish a cooking session to start building history.</p>';
-
-  $("analytics-recent").innerHTML=cookLogs.slice(0,8).map(log=>{
-    const r=recipes.find(x=>x.id===log.recipe_id);
-    const stars=log.rating?` · ${"★".repeat(Number(log.rating))}`:"";
-    return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${esc(log.cooked_on)}${stars}${log.notes?` · ${esc(log.notes)}`:""}</small></span><b>👥 ${esc(log.servings_cooked||"—")}</b></div>`;
-  }).join("")||'<p class="muted">No completed cooks yet.</p>';
+  $("analytics-most-cooked").innerHTML=most.length?most.map(([id,count],index)=>{const r=recipes.find(x=>x.id===id);return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${index===0?"Family champion":"Cooked regularly"}</small></span><b>${count}×</b></div>`}).join(""):'<p class="muted">Finish a cooking session to start building history.</p>';
+  $("analytics-recent").innerHTML=cookLogs.slice(0,8).map(log=>{const r=recipes.find(x=>x.id===log.recipe_id),stars=log.rating?` · ${"★".repeat(Number(log.rating))}`:"";return `<div class="analytics-row"><span class="emoji">${r?.emoji||"🍽️"}</span><span><strong>${esc(r?.title||"Recipe")}</strong><small>${esc(log.cooked_on)}${stars}${log.notes?` · ${esc(log.notes)}`:""}</small></span><b>👥 ${esc(log.servings_cooked||"—")}</b></div>`}).join("")||'<p class="muted">No completed cooks yet.</p>';
 }
 
 /* =========================================================
@@ -595,8 +701,10 @@ function renderSmartHome(today){
   const tonightEntry=homeDateEntry(homeCurrentDays,today);
   const tomorrowDate=plannerAdd(today,1);
   const tomorrowEntry=homeDateEntry(homeCurrentDays,tomorrowDate);
-  const tonight=homeMealInfo(tonightEntry);
+  let tonight=homeMealInfo(tonightEntry);
   const tomorrow=homeMealInfo(tomorrowEntry);
+  const completedTonight=tonightEntry?.meal_type==="recipe"&&cookLogs.some(log=>log.recipe_id===tonightEntry.recipe_id&&log.cooked_on===plannerIso(today));
+  if(completedTonight){tonight={...tonight,title:"Dinner complete",story:`${tonight.recipe?.title||"Tonight's meal"} is cooked. Enjoy your evening ❤️`,type:"completed",emoji:"✅"}}
 
   const tonightCard=document.querySelector(".tonight-card");
   tonightCard.classList.remove("special-night","free-night","leftovers-night","eating-out-night","no-plan");
@@ -605,6 +713,7 @@ function renderSmartHome(today){
   if(tonight.type==="leftovers")tonightCard.classList.add("leftovers-night");
   if(tonight.type==="eating_out")tonightCard.classList.add("eating-out-night");
   if(tonight.type==="none")tonightCard.classList.add("no-plan");
+  tonightCard.classList.toggle("dinner-complete-card",tonight.type==="completed");
 
   $("tonight-visual").textContent=tonight.emoji;
   $("tonight-title").textContent=tonight.title;
@@ -612,7 +721,7 @@ function renderSmartHome(today){
   $("tonight-eyebrow").textContent=tonight.type==="recipe"?"Tonight's dinner":"Tonight";
   $("tonight-meta").hidden=tonight.type!=="recipe";
   $("cook-tonight-button").hidden=tonight.type!=="recipe";
-  $("choose-tonight-button").hidden=tonight.type==="recipe";
+  $("choose-tonight-button").hidden=tonight.type==="recipe"||tonight.type==="completed";
 
   if(tonight.type==="recipe"){
     $("tonight-meta").innerHTML=`
@@ -716,35 +825,105 @@ $("cook-tonight-button").onclick=()=>{
   if(id)startCookMode(id,todayEntry?.planned_servings||null,false);
 };
 
+function normaliseShoppingUnit(unit=""){
+  const u=String(unit||"").trim().toLowerCase().replace(/\./g,"");
+  const aliases={
+    "cups":"cup","c":"cup",
+    "tablespoon":"tbsp","tablespoons":"tbsp",
+    "teaspoon":"tsp","teaspoons":"tsp",
+    "grams":"g","gram":"g",
+    "kilograms":"kg","kilogram":"kg",
+    "millilitres":"ml","milliliters":"ml","millilitre":"ml","milliliter":"ml",
+    "litres":"l","liters":"l","litre":"l","liter":"l",
+    "cloves":"clove","leaves":"leaf",
+    "eggs":"egg","onions":"onion","carrots":"carrot",
+    "sticks":"stick","slices":"slice","tins":"tin","cans":"tin",
+    "packets":"packet","packs":"packet","bunches":"bunch",
+    "fillets":"fillet","cutlets":"cutlet"
+  };
+  return aliases[u]||u;
+}
+
+function displayShoppingUnit(unit="",quantity=null){
+  const u=normaliseShoppingUnit(unit);
+  if(!u)return "";
+  const plural=Number(quantity)!==1;
+  const names={
+    cup:plural?"cups":"cup",
+    tbsp:"tbsp",
+    tsp:"tsp",
+    g:"g",kg:"kg",ml:"ml",l:"L",
+    clove:plural?"cloves":"clove",
+    leaf:plural?"leaves":"leaf",
+    egg:plural?"eggs":"egg",
+    onion:plural?"onions":"onion",
+    carrot:plural?"carrots":"carrot",
+    stick:plural?"sticks":"stick",
+    slice:plural?"slices":"slice",
+    tin:plural?"tins":"tin",
+    packet:plural?"packets":"packet",
+    bunch:plural?"bunches":"bunch",
+    fillet:plural?"fillets":"fillet",
+    cutlet:plural?"cutlets":"cutlet"
+  };
+  return names[u]||u;
+}
+
+function canonicalIngredientName(name=""){
+  let value=String(name).trim().toLowerCase()
+    .replace(/[(),]/g," ")
+    .replace(/\s+/g," ")
+    .replace(/\b(fresh|dried|large|small|medium)\b/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+
+  const aliases=[
+    [/\bcloves? of garlic\b|\bgarlic cloves?\b/g,"garlic"],
+    [/\bbay leaves?\b/g,"bay leaf"],
+    [/\bbrown onions?\b/g,"brown onion"],
+    [/\bonions?\b/g,"onion"],
+    [/\bvegetable stock\b|\bveg stock\b/g,"vegetable stock"],
+    [/\bchicken stock\b/g,"chicken stock"]
+  ];
+  for(const [pattern,replacement] of aliases)value=value.replace(pattern,replacement);
+  return value.trim();
+}
+
+function isCountableShoppingItem(unit,name){
+  const u=normaliseShoppingUnit(unit);
+  const item=canonicalIngredientName(name);
+  const countUnits=new Set([
+    "clove","leaf","egg","onion","carrot","stick","slice","tin",
+    "packet","bunch","fillet","cutlet","each"
+  ]);
+  const countNames=/(onion|garlic|bay leaf|carrot|celery|leek|capsicum|apple|banana|orange|lemon|lime|potato|tomato|egg|avocado|zucchini|cucumber|mushroom|fillet|cutlet)$/;
+  return countUnits.has(u)||(u===""&&countNames.test(item));
+}
+
 function roundScaledQuantity(quantity,unit,ingredientName=""){
   if(quantity===null||quantity===undefined)return null;
   const n=Number(quantity);
   if(!Number.isFinite(n))return null;
+  const u=normaliseShoppingUnit(unit);
 
-  const u=String(unit||"").toLowerCase();
-  const name=String(ingredientName||"").toLowerCase();
+  if(isCountableShoppingItem(u,ingredientName))return Math.max(1,Math.ceil(n));
+  if(["cup","tbsp","tsp"].includes(u))return Math.max(.25,Math.ceil(n*4)/4);
 
-  const countableNames=/(onion|garlic|clove|carrot|celery|leek|capsicum|apple|banana|orange|lemon|lime|potato|tomato|egg|avocado|zucchini|cucumber|mushroom|bread roll|tortilla|fillet|cutlet)/;
-  const countableUnits=["clove","cloves","tin","tins","packet","packets","bunch","bunches","slice","slices","each","stick","sticks"];
-
-  if(countableUnits.includes(u)||(u===""&&countableNames.test(name)))return Math.max(1,Math.ceil(n));
-  if(u==="tbsp")return Math.max(.5,Math.round(n));
-  if(u==="tsp")return Math.max(.25,Math.round(n*2)/2);
-  if(["cup","cups"].includes(u))return Math.round(n*4)/4;
-
+  // Practical supermarket amounts rather than calculator noise.
   if(["g","ml"].includes(u)){
-    if(n>=1000)return Math.round(n/50)*50;
-    if(n>=100)return Math.round(n/25)*25;
-    return Math.max(1,Math.round(n/5)*5);
+    if(n>=1000)return Math.ceil(n/50)*50;
+    if(n>=100)return Math.ceil(n/25)*25;
+    return Math.max(5,Math.ceil(n/5)*5);
   }
-  if(["kg","l"].includes(u))return Math.round(n*10)/10;
-  return Math.round(n*100)/100;
+  if(["kg","l"].includes(u))return Math.ceil(n*10)/10;
+  return Math.ceil(n*100)/100;
 }
+
 function shoppingMergeKey(row){
   return [
     row.shopping_destination||"woolworths",
-    row.ingredient_id||row.ingredient_name?.toLowerCase(),
-    String(row.unit||"").toLowerCase()
+    canonicalIngredientName(row.ingredient_name||row.item_name||""),
+    normaliseShoppingUnit(row.unit)
   ].join("|");
 }
 
@@ -782,7 +961,7 @@ async function generateShoppingLists(){
 
       for(const row of (rows||[]).filter(x=>x.recipe_id===day.recipe_id)){
         const destination=row.shopping_destination||"woolworths";
-        const scaled=row.quantity===null?null:roundScaledQuantity(Number(row.quantity)*factor,row.unit,row.ingredient_name);
+        const scaled=row.quantity===null?null:Number(row.quantity)*factor;
         const key=shoppingMergeKey(row);
 
         if(!merged.has(key)){
@@ -791,14 +970,14 @@ async function generateShoppingLists(){
             item_name:row.ingredient_name||"Ingredient",
             quantity:scaled,
             display_quantity:row.display_quantity||null,
-            unit:row.unit||null,
+            unit:normaliseShoppingUnit(row.unit)||null,
             destination,
             notes:null
           });
         }else{
           const current=merged.get(key);
           if(current.quantity!==null&&scaled!==null){
-            current.quantity=roundScaledQuantity(Number(current.quantity)+Number(scaled),current.unit,current.item_name);
+            current.quantity=Number(current.quantity)+Number(scaled);
           }else if(current.display_quantity&&row.display_quantity&&current.display_quantity!==row.display_quantity){
             current.notes=[current.notes,row.display_quantity].filter(Boolean).join("; ");
           }
@@ -816,7 +995,7 @@ async function generateShoppingLists(){
       shopping_list_id:getListId(x.destination)||getListId("woolworths"),
       ingredient_id:x.ingredient_id||null,
       item_name:x.item_name,
-      quantity:x.quantity,
+      quantity:x.quantity===null?null:roundScaledQuantity(x.quantity,x.unit,x.item_name),
       display_quantity:x.display_quantity,
       unit:x.unit,
       source_type:"meal_plan",
@@ -838,7 +1017,7 @@ async function generateShoppingLists(){
 
     await loadPrivateData();
     await refreshSmartHome();
-    $("shopping-generation-status").textContent=`Lists generated: ${payload.length} combined items.`;
+    $("shopping-generation-status").textContent=`Smart lists generated: ${payload.length} combined items.`;
     $("shopping-generation-status").classList.add("success");
   }catch(error){
     $("shopping-generation-status").textContent=error.message||String(error);
@@ -1035,6 +1214,7 @@ function managerOpenRecipe(id){
 }
 
 function managerAddIngredientRow(data={}){
+  ensurePantryDestinationOption();
   const fragment=$("manager-ingredient-template").content.cloneNode(true);
   const row=fragment.querySelector(".manager-ingredient-row");
   row.querySelector(".mi-qty").value=data.quantity??data.display_quantity??"";

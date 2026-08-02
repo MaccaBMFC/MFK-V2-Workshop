@@ -46,8 +46,8 @@
         <section id="resume-cooking-card" class="resume-cooking-card" hidden>
           <div>
             <p class="eyebrow">Cooking session</p>
-            <h2 id="resume-cooking-title">Resume cooking</h2>
-            <p id="resume-cooking-detail">Your last step is waiting.</p>
+            <h2 id="resume-cooking-title">Resume Cooking</h2>
+            <p id="resume-cooking-detail">Loading your active cooking session…</p>
           </div>
           <button id="resume-cooking-button" class="button primary">Resume →</button>
         </section>
@@ -214,7 +214,7 @@
             <input id="shopping-name" placeholder="Add an item…">
             <button id="add-shopping-item" class="button primary">Add</button>
           </div>
-          <p class="shopping-helper">Manual items stay safe when recipe lists are regenerated.</p>
+          <p class="shopping-helper">Manual items stay safe when lists regenerate. Recipe quantities are combined and formatted like a real shopping list.</p>
 
           <div id="shopping-list-content" class="shopping-list-content">
             <div class="empty-state">
@@ -237,6 +237,27 @@
           </div>
         </div>
 
+        <section class="settings-account-card">
+          <div class="settings-account-main">
+            <span class="settings-account-icon">👤</span>
+            <div>
+              <p class="eyebrow">Account & Sync</p>
+              <h2 id="settings-account-name">MFK account</h2>
+              <p id="settings-account-email" class="muted">Not signed in</p>
+            </div>
+          </div>
+          <div class="settings-account-status">
+            <span id="settings-sync-dot" class="sync-dot"></span>
+            <strong id="settings-sync-status">Checking session…</strong>
+          </div>
+          <div class="settings-account-actions">
+            <button id="settings-sign-in-button" class="button primary" type="button">Sign in</button>
+            <button id="settings-sign-out-button" class="button secondary" type="button" hidden>Sign out</button>
+            <button id="settings-clear-cache-button" class="button secondary" type="button">Refresh app cache</button>
+          </div>
+          <p class="settings-account-note">MFK keeps you signed in securely on this device until you choose Sign out.</p>
+        </section>
+
         <div class="settings-list">
           <button id="open-recipe-manager" class="settings-item">
             <span>📝</span><span><strong>Recipe Manager</strong><small>Owners, structured ingredients and favourites</small></span><b>Open ›</b>
@@ -254,7 +275,7 @@
             <span>📊</span><span><strong>Kitchen Analytics</strong><small>Cooking history, favourites and family trends</small></span><b>Open ›</b>
           </button>
           <button class="settings-item">
-            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 1.2 · Kitchen Assistant</small></span><b>›</b>
+            <span>ℹ️</span><span><strong>About MFK</strong><small>Version 1.3.0 RC4 · Cooking & Shopping Intelligence</small></span><b>›</b>
           </button>
         </div>
       </div>
@@ -400,41 +421,59 @@
         </section>
       </main>
 
+
+        <section id="cook-exit-overlay" class="cook-overlay" hidden>
+          <div class="cook-overlay-card">
+            <div class="dialog-icon">🍳</div>
+            <p class="eyebrow">Leave Cook Mode?</p>
+            <h2>What would you like to do?</h2>
+            <p>Your place is saved in MFK and can be resumed from any signed-in device.</p>
+            <div class="cook-overlay-actions">
+              <button id="cook-resume-later" class="cook-choice" type="button">
+                <span>⏸️</span><span><strong>Resume later</strong><small>Return Home and keep this step active.</small></span>
+              </button>
+              <button id="cook-finish-now" class="cook-choice" type="button">
+                <span>🎉</span><span><strong>Finish cooking</strong><small>Complete the cook and open the journal.</small></span>
+              </button>
+              <button id="cook-stop-now" class="cook-choice danger" type="button">
+                <span>⏹️</span><span><strong>Stop cooking</strong><small>Discard this active session.</small></span>
+              </button>
+            </div>
+            <button id="cook-exit-cancel" class="button secondary" type="button">Keep Cooking</button>
+          </div>
+        </section>
+
+        <section id="cook-finish-overlay" class="cook-overlay" hidden>
+          <div class="cook-overlay-card finish-card">
+            <div class="finish-emoji">🎉</div>
+            <p class="eyebrow">Dinner is ready</p>
+            <h2>Hope everyone enjoys it ❤️</h2>
+            <p>Anything worth remembering for next time?</p>
+            <div class="rating-picker" aria-label="Recipe rating">
+              <button type="button" data-session-rating="1">★</button>
+              <button type="button" data-session-rating="2">★</button>
+              <button type="button" data-session-rating="3">★</button>
+              <button type="button" data-session-rating="4">★</button>
+              <button type="button" data-session-rating="5">★</button>
+            </div>
+            <label class="finish-note-label">Cook note
+              <textarea id="session-finish-note" rows="4" placeholder="Needed more garlic, kids loved it, cook five minutes longer…"></textarea>
+            </label>
+            <div class="finish-actions">
+              <button id="session-finish-home" class="button secondary" type="button">Back Home</button>
+              <button id="session-finish-save" class="button primary" type="button">Save & Back Home</button>
+            </div>
+            <p id="session-finish-message" class="form-message"></p>
+          </div>
+        </section>
+
       <footer class="cook-mode-footer">
         <button id="cook-prev-step" class="button secondary" type="button">← Previous</button>
         <button id="cook-next-step" class="button primary" type="button">Next →</button>
       </footer>
     </div>
   </dialog>
-
-  <dialog id="cook-finish-dialog" class="cook-finish-dialog">
-    <div class="cook-finish-shell">
-      <div class="finish-emoji">🎉</div>
-      <p class="eyebrow">Dinner is ready</p>
-      <h2>Hope everyone enjoys it ❤️</h2>
-      <p>Anything worth remembering for next time?</p>
-
-      <div class="rating-picker" aria-label="Recipe rating">
-        <button type="button" data-rating="1">★</button>
-        <button type="button" data-rating="2">★</button>
-        <button type="button" data-rating="3">★</button>
-        <button type="button" data-rating="4">★</button>
-        <button type="button" data-rating="5">★</button>
-      </div>
-
-      <label class="finish-note-label">Cook note
-        <textarea id="cook-finish-note" rows="4" placeholder="Needed more garlic, kids loved it, cook five minutes longer…"></textarea>
-      </label>
-
-      <div class="finish-actions">
-        <button id="finish-without-note" class="button secondary" type="button">Back Home</button>
-        <button id="save-cook-finish" class="button primary" type="button">Save & Back Home</button>
-      </div>
-      <p id="cook-finish-message" class="form-message"></p>
-    </div>
-  </dialog>
-
-  <dialog id="kitchen-analytics-dialog" class="analytics-dialog">
+<dialog id="kitchen-analytics-dialog" class="analytics-dialog">
     <button class="dialog-close" data-close-dialog="kitchen-analytics-dialog">×</button>
     <div class="analytics-shell">
       <header>
@@ -614,6 +653,7 @@
         <select class="mi-shop">
           <option value="woolworths">🛒 Woolworths</option>
           <option value="fruit_veg">🥕 Fruit & Veg</option>
+          <option value="pantry">🥫 Pantry / Staples</option>
         </select>
       </label>
       <button class="mi-remove" type="button" aria-label="Remove ingredient">×</button>
