@@ -249,7 +249,20 @@ function openRecipe(id){
     <div class="recipe-body">
       ${r.story?`<p>${esc(r.story)}</p>`:""}
       <div class="info-strip"><div class="info-box"><strong>Prep</strong>${esc(r.prep||"—")}</div><div class="info-box"><strong>Cook</strong>${esc(r.cook||"—")}</div><div class="info-box"><strong>Serves</strong>${esc(r.base_servings??r.serves??"—")}</div></div>
-      <section class="recipe-section"><h3>🛒 Ingredients</h3><ul>${safeArray(r.ingredients).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></section>
+      <section class="recipe-section">
+  <h3>🛒 Ingredients</h3>
+  <ul>
+    ${safeArray(r.ingredients).map(x => {
+      if (typeof x === "string") return `<li>${esc(x)}</li>`;
+
+      const qty = x.quantity ?? x.qty ?? "";
+      const unit = x.unit ?? "";
+      const name = x.ingredient ?? x.name ?? "";
+
+      return `<li>${esc([qty, unit, name].filter(Boolean).join(" "))}</li>`;
+    }).join("")}
+  </ul>
+</section>
       <section class="recipe-section"><h3>👨‍🍳 Method</h3><ol>${safeArray(r.method).map(x=>`<li>${esc(x)}</li>`).join("")}</ol></section>
       ${safeArray(r.tips).length?`<section class="recipe-section tip-box"><h3>💡 Macca's Tips</h3><ul>${r.tips.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></section>`:""}
     </div>`;
