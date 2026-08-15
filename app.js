@@ -252,14 +252,9 @@ function openRecipe(id){
       <section class="recipe-section">
   <h3>🛒 Ingredients</h3>
   <ul>
-    ${safeArray(r.ingredients).map(x => {
-      if (typeof x === "string") return `<li>${esc(x)}</li>`;
-
-      const qty = x.quantity ?? x.qty ?? "";
-      const unit = x.unit ?? "";
-      const name = x.ingredient ?? x.name ?? "";
-
-      return `<li>${esc([qty, unit, name].filter(Boolean).join(" "))}</li>`;
+    ${structuredForRecipe(r.id).map(x => {
+      const qty = x.display_quantity ?? x.quantity ?? "";
+      return `<li>${esc([qty, x.unit, x.ingredient_name].filter(v => v !== null && v !== "").join(" "))}</li>`;
     }).join("")}
   </ul>
 </section>
