@@ -250,7 +250,7 @@ function openRecipe(id){
       ${r.story?`<p>${esc(r.story)}</p>`:""}
       <div class="info-strip"><div class="info-box"><strong>Prep</strong>${esc(r.prep||"—")}</div><div class="info-box"><strong>Cook</strong>${esc(r.cook||"—")}</div><div class="info-box"><strong>Serves</strong>${esc(r.base_servings??r.serves??"—")}</div></div>
       <section class="recipe-section">
-  <h3>🛒 Ingredients</h3>
+  <h3>🛒 Ingredients TEST</h3>
   <ul>
     ${structuredForRecipe(r.id).map(x => {
       const qty = x.display_quantity ?? x.quantity ?? "";
