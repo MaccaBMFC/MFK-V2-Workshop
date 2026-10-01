@@ -1026,16 +1026,26 @@ async function generateShoppingLists(){
       ingredient_id:x.ingredient_id||null,
       item_name:x.item_name,
 
-      quantity:x.quantity===null
-        ? null
+quantity:x.quantity===null
+  ? null
+  : (
+      normaliseShoppingUnit(x.unit)==="g" &&
+      Number(x.quantity)>=1000
+        ? Math.round((Number(x.quantity)/1000)*100)/100
         : roundScaledQuantity(
             x.quantity,
             x.unit,
             x.item_name
-          ),
+          )
+    ),
 
-      display_quantity:null,
-      unit:x.unit,
+display_quantity:null,
+
+unit:
+  normaliseShoppingUnit(x.unit)==="g" &&
+  Number(x.quantity)>=1000
+    ? "kg"
+    : x.unit,
       source_type:"meal_plan",
       meal_plan_id:plannerPlan.id,
       notes:x.notes,
