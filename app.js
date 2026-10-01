@@ -953,23 +953,42 @@ async function generateShoppingLists(){
 
   try{
     const recipeIds=[...new Set(recipeDays.map(x=>x.recipe_id))];
+
     const {data:rows,error}=await db.from("recipe_ingredients_expanded")
       .select("*")
       .in("recipe_id",recipeIds)
       .order("sort_order");
+
     if(error)throw error;
 
     const merged=new Map();
 
     for(const day of recipeDays){
       const recipe=recipes.find(r=>r.id===day.recipe_id);
-      const baseServings=Number(recipe?.base_servings||recipe?.serves||day.planned_servings||1);
-      const plannedServings=Number(day.planned_servings||baseServings||1);
-      const factor=baseServings>0?plannedServings/baseServings:1;
+      const baseServings=Number(
+        recipe?.base_servings||
+        recipe?.serves||
+        day.planned_servings||
+        1
+      );
+
+      const plannedServings=Number(
+        day.planned_servings||
+        baseServings||
+        1
+      );
+
+      const factor=baseServings>0
+        ? plannedServings/baseServings
+        : 1;
 
       for(const row of (rows||[]).filter(x=>x.recipe_id===day.recipe_id)){
         const destination=row.shopping_destination||"woolworths";
-        const scaled=row.quantity===null?null:Number(row.quantity)*factor;
+
+        const scaled=row.quantity===null
+          ? null
+          : Number(row.quantity)*factor;
+
         const key=shoppingMergeKey(row);
 
         if(!merged.has(key)){
@@ -977,17 +996,17 @@ async function generateShoppingLists(){
             ingredient_id:row.ingredient_id,
             item_name:row.ingredient_name||"Ingredient",
             quantity:scaled,
-            display_quantity:row.display_quantity||null,
+            display_quantity:null,
             unit:normaliseShoppingUnit(row.unit)||null,
             destination,
             notes:null
           });
         }else{
           const current=merged.get(key);
+
           if(current.quantity!==null&&scaled!==null){
-            current.quantity=Number(current.quantity)+Number(scaled);
-          }else if(current.display_quantity&&row.display_quantity&&current.display_quantity!==row.display_quantity){
-            current.notes=[current.notes,row.display_quantity].filter(Boolean).join("; ");
+            current.quantity=
+              Number(current.quantity)+Number(scaled);
           }
         }
       }
@@ -995,16 +1014,27 @@ async function generateShoppingLists(){
 
     const {error:deleteError}=await db.from("shopping_items")
       .delete()
-      .eq("source_type","meal_plan")
-      .eq("meal_plan_id",plannerPlan.id);
+      .eq("source_type","meal_plan");
+
     if(deleteError)throw deleteError;
 
     const payload=[...merged.values()].map((x,index)=>({
-      shopping_list_id:getListId(x.destination)||getListId("woolworths"),
+      shopping_list_id:
+        getListId(x.destination)||
+        getListId("woolworths"),
+
       ingredient_id:x.ingredient_id||null,
       item_name:x.item_name,
-      quantity:x.quantity===null?null:roundScaledQuantity(x.quantity,x.unit,x.item_name),
-      display_quantity:x.display_quantity,
+
+      quantity:x.quantity===null
+        ? null
+        : roundScaledQuantity(
+            x.quantity,
+            x.unit,
+            x.item_name
+          ),
+
+      display_quantity:null,
       unit:x.unit,
       source_type:"meal_plan",
       meal_plan_id:plannerPlan.id,
@@ -1014,23 +1044,37 @@ async function generateShoppingLists(){
     }));
 
     if(payload.length){
-      const {error:insertError}=await db.from("shopping_items").insert(payload);
+      const {error:insertError}=await db
+        .from("shopping_items")
+        .insert(payload);
+
       if(insertError)throw insertError;
     }
 
-    const {error:planError}=await db.from("meal_plans")
-      .update({shopping_generated_at:new Date().toISOString(),status:"planned"})
+    const {error:planError}=await db
+      .from("meal_plans")
+      .update({
+        shopping_generated_at:new Date().toISOString(),
+        status:"planned"
+      })
       .eq("id",plannerPlan.id);
+
     if(planError)throw planError;
 
     await loadPrivateData();
     await refreshSmartHome();
-    $("shopping-generation-status").textContent=`Smart lists generated: ${payload.length} combined items.`;
+
+    $("shopping-generation-status").textContent=
+      `Smart lists generated: ${payload.length} combined items.`;
+
     $("shopping-generation-status").classList.add("success");
+
   }catch(error){
-    $("shopping-generation-status").textContent=error.message||String(error);
+    $("shopping-generation-status").textContent=
+      error.message||String(error);
   }
 }
+
 
 async function resetGeneratedShopping(){
   if(!currentUser){showLogin();return}
